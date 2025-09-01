@@ -565,6 +565,150 @@ mod tests {
     }
     
     #[test]
+    fn test_parse_char_shape() {
+        let mut data = vec![];
+        
+        // Face name IDs (7 x u16)
+        for i in 0..7 {
+            data.extend_from_slice(&[i as u8, 0x00]);
+        }
+        
+        // Ratios (7 x u8)
+        for i in 0..7 {
+            data.push(50 + i as u8);
+        }
+        
+        // Char spaces (7 x i8)
+        for i in 0..7 {
+            data.push((i as i8).to_le_bytes()[0]);
+        }
+        
+        // Rel sizes (7 x u8)
+        for i in 0..7 {
+            data.push(100 - i as u8);
+        }
+        
+        // Char offsets (7 x i8)
+        for i in 0..7 {
+            data.push((-(i as i8)).to_le_bytes()[0]);
+        }
+        
+        // Other fields
+        data.extend_from_slice(&[0x00, 0x0A, 0x00, 0x00]); // base_size: 2560
+        data.extend_from_slice(&[0x01, 0x00, 0x00, 0x00]); // properties: 1
+        data.push(0x02); // shadow_gap_x: 2
+        data.push(0x03); // shadow_gap_y: 3
+        data.extend_from_slice(&[0xFF, 0x00, 0x00, 0x00]); // text_color: 0xFF (red)
+        data.extend_from_slice(&[0x00, 0xFF, 0x00, 0x00]); // underline_color: 0xFF00 (green)
+        data.extend_from_slice(&[0x00, 0x00, 0xFF, 0x00]); // shade_color: 0xFF0000 (blue)
+        data.extend_from_slice(&[0x00, 0x00, 0x00, 0xFF]); // shadow_color: 0xFF000000 (black)
+        data.extend_from_slice(&[0x05, 0x00]); // border_fill_id: 5
+        
+        let char_shape = parse_char_shape(&data).unwrap();
+        assert_eq!(char_shape.face_name_ids.len(), 7);
+        assert_eq!(char_shape.face_name_ids[0], 0);
+        assert_eq!(char_shape.face_name_ids[6], 6);
+        assert_eq!(char_shape.ratios[0], 50);
+        assert_eq!(char_shape.base_size, 2560);
+        assert_eq!(char_shape.properties, 1);
+        assert_eq!(char_shape.shadow_gap_x, 2);
+        assert_eq!(char_shape.shadow_gap_y, 3);
+        assert_eq!(char_shape.text_color, 0xFF);
+        assert_eq!(char_shape.border_fill_id, Some(5));
+    }
+    
+    #[test]
+    fn test_parse_para_shape() {
+        let data = vec![
+            0x01, 0x00, 0x00, 0x00, // properties1: 1
+            0x00, 0x05, 0x00, 0x00, // left_margin: 1280
+            0x00, 0x05, 0x00, 0x00, // right_margin: 1280
+            0x00, 0x02, 0x00, 0x00, // indent: 512
+            0x00, 0x01, 0x00, 0x00, // prev_spacing: 256
+            0x00, 0x01, 0x00, 0x00, // next_spacing: 256
+            0x00, 0x02, 0x00, 0x00, // line_spacing: 512
+            0x00, 0x00, // tab_def_id: 0
+            0x00, 0x00, // numbering_id: 0
+            0x00, 0x00, // border_fill_id: 0
+            0x0A, 0x00, // border_offset_left: 10
+            0x0A, 0x00, // border_offset_right: 10
+            0x0A, 0x00, // border_offset_top: 10
+            0x0A, 0x00, // border_offset_bottom: 10
+            0x02, 0x00, 0x00, 0x00, // properties2: 2
+            0x03, 0x00, 0x00, 0x00, // properties3: 3
+            0x01, 0x00, 0x00, 0x00, // line_spacing_type: 1
+        ];
+        
+        let para_shape = parse_para_shape(&data).unwrap();
+        assert_eq!(para_shape.properties1, 1);
+        assert_eq!(para_shape.left_margin, 1280);
+        assert_eq!(para_shape.right_margin, 1280);
+        assert_eq!(para_shape.indent, 512);
+        assert_eq!(para_shape.prev_spacing, 256);
+        assert_eq!(para_shape.next_spacing, 256);
+        assert_eq!(para_shape.line_spacing, 512);
+        assert_eq!(para_shape.tab_def_id, 0);
+        assert_eq!(para_shape.numbering_id, 0);
+        assert_eq!(para_shape.border_fill_id, 0);
+        assert_eq!(para_shape.border_offset_left, 10);
+        assert_eq!(para_shape.border_offset_right, 10);
+        assert_eq!(para_shape.border_offset_top, 10);
+        assert_eq!(para_shape.border_offset_bottom, 10);
+        assert_eq!(para_shape.properties2, 2);
+        assert_eq!(para_shape.properties3, 3);
+        assert_eq!(para_shape.line_spacing_type, 1);
+    }
+    
+    #[test]
+    fn test_parse_border_fill() {
+        let data = vec![
+            0x01, 0x00, // properties: 1
+            // Left border
+            0x01, // line_type: 1
+            0x02, // thickness: 2
+            0xFF, 0x00, 0x00, 0x00, // color: 0xFF (red)
+            // Right border
+            0x01, // line_type: 1
+            0x02, // thickness: 2
+            0x00, 0xFF, 0x00, 0x00, // color: 0xFF00 (green)
+            // Top border
+            0x01, // line_type: 1
+            0x02, // thickness: 2
+            0x00, 0x00, 0xFF, 0x00, // color: 0xFF0000 (blue)
+            // Bottom border
+            0x01, // line_type: 1
+            0x02, // thickness: 2
+            0x00, 0x00, 0x00, 0xFF, // color: 0xFF000000 (black)
+            // Diagonal border
+            0x00, // line_type: 0
+            0x00, // thickness: 0
+            0x00, 0x00, 0x00, 0x00, // color: 0
+            0x01, // fill_type: 1
+            0xAA, 0xBB, 0xCC, 0xDD, // fill_data
+        ];
+        
+        let border_fill = parse_border_fill(&data).unwrap();
+        assert_eq!(border_fill.properties, 1);
+        assert_eq!(border_fill.left_border.line_type, 1);
+        assert_eq!(border_fill.left_border.thickness, 2);
+        assert_eq!(border_fill.left_border.color, 0xFF);
+        assert_eq!(border_fill.right_border.color, 0xFF00);
+        assert_eq!(border_fill.top_border.color, 0xFF0000);
+        assert_eq!(border_fill.bottom_border.color, 0xFF000000);
+        assert_eq!(border_fill.diagonal_border.line_type, 0);
+        assert_eq!(border_fill.fill_type, 1);
+        assert_eq!(border_fill.fill_data, vec![0xAA, 0xBB, 0xCC, 0xDD]);
+    }
+    
+    #[test]
+    fn test_parse_doc_data() {
+        let data = vec![0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08];
+        
+        let doc_data = parse_doc_data(&data).unwrap();
+        assert_eq!(doc_data, vec![0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]);
+    }
+    
+    #[test]
     fn test_parse_style() {
         let data = vec![
             0x04, 0x00, // name length: 4 characters
@@ -745,6 +889,7 @@ mod tests {
     
     #[test]
     fn test_parse_track_change() {
+        // This test also covers CHANGE_TRACKING (0x00F0) which uses the same parser
         let data = vec![
             0x01, 0x00, 0x00, 0x00, // properties: 1
             0x02, 0x00, // author_id: 2
