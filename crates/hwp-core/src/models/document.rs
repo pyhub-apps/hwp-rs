@@ -7,13 +7,13 @@ use std::collections::HashMap;
 pub struct HwpDocument {
     /// File header
     pub header: HwpHeader,
-    
+
     /// Document information
     pub doc_info: DocInfo,
-    
+
     /// Document sections
     pub sections: Vec<Section>,
-    
+
     /// Binary data storage
     pub bin_data: HashMap<u16, Vec<u8>>,
 }
@@ -28,12 +28,12 @@ impl HwpDocument {
             bin_data: HashMap::new(),
         }
     }
-    
+
     /// Get the total page count
     pub fn page_count(&self) -> usize {
         self.sections.iter().map(|s| s.page_count()).sum()
     }
-    
+
     /// Get all text content from the document
     pub fn get_text(&self) -> String {
         let mut text = String::new();
@@ -51,58 +51,58 @@ impl HwpDocument {
 pub struct DocInfo {
     /// Document properties
     pub properties: DocumentProperties,
-    
+
     /// Character shapes
     pub char_shapes: Vec<CharShape>,
-    
+
     /// Paragraph shapes
     pub para_shapes: Vec<ParaShape>,
-    
+
     /// Styles
     pub styles: Vec<Style>,
-    
+
     /// Face names (fonts)
     pub face_names: Vec<FaceName>,
-    
+
     /// Border fills
     pub border_fills: Vec<BorderFill>,
-    
+
     /// ID mappings for internal references
     pub id_mappings: Vec<u32>,
-    
+
     /// Binary data entries (embedded files, images, etc.)
     pub bin_data_entries: Vec<BinDataEntry>,
-    
+
     /// Document-specific data
     pub doc_data: Vec<u8>,
-    
+
     /// Tab definitions
     pub tab_defs: Vec<TabDef>,
-    
+
     /// Numbering definitions
     pub numberings: Vec<Numbering>,
-    
+
     /// Bullet definitions  
     pub bullets: Vec<Bullet>,
-    
+
     /// Document distribution data
     pub distribute_doc_data: Option<DistributeDocData>,
-    
+
     /// Compatible document settings
     pub compatible_document: Option<CompatibleDocument>,
-    
+
     /// Layout compatibility settings
     pub layout_compatibility: Option<LayoutCompatibility>,
-    
+
     /// Track changes
     pub track_changes: Vec<TrackChange>,
-    
+
     /// Track change authors
     pub track_change_authors: Vec<TrackChangeAuthor>,
-    
+
     /// Memo shapes
     pub memo_shapes: Vec<MemoShape>,
-    
+
     /// Forbidden characters
     pub forbidden_chars: Option<ForbiddenChar>,
 }

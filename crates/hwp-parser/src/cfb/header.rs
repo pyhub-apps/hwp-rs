@@ -1,7 +1,7 @@
-use byteorder::{LittleEndian, ReadBytesExt};
-use hwp_core::{Result, HwpError};
-use std::io::{Read, Seek, SeekFrom};
 use super::constants::*;
+use byteorder::{LittleEndian, ReadBytesExt};
+use hwp_core::{HwpError, Result};
+use std::io::{Read, Seek, SeekFrom};
 
 /// CFB Header structure (512 bytes)
 #[derive(Debug, Clone)]
@@ -48,9 +48,10 @@ impl CfbHeader {
     /// Parse CFB header from a reader
     pub fn from_reader<R: Read + Seek>(reader: &mut R) -> Result<Self> {
         // Ensure we're at the beginning
-        reader.seek(SeekFrom::Start(0))
+        reader
+            .seek(SeekFrom::Start(0))
             .map_err(|e| HwpError::IoError(e))?;
-        
+
         let mut header = CfbHeader {
             signature: [0; 8],
             clsid: [0; 16],
@@ -71,90 +72,108 @@ impl CfbHeader {
             difat_sectors: 0,
             difat: [0; 109],
         };
-        
+
         // Read signature
-        reader.read_exact(&mut header.signature)
+        reader
+            .read_exact(&mut header.signature)
             .map_err(|e| HwpError::IoError(e))?;
-        
+
         // Validate signature
         if header.signature != CFB_SIGNATURE {
             return Err(HwpError::InvalidFormat {
-                reason: "Invalid CFB signature".to_string()
+                reason: "Invalid CFB signature".to_string(),
             });
         }
-        
+
         // Read CLSID
-        reader.read_exact(&mut header.clsid)
+        reader
+            .read_exact(&mut header.clsid)
             .map_err(|e| HwpError::IoError(e))?;
-        
+
         // Read version and byte order
-        header.minor_version = reader.read_u16::<LittleEndian>()
+        header.minor_version = reader
+            .read_u16::<LittleEndian>()
             .map_err(|e| HwpError::IoError(e))?;
-        header.major_version = reader.read_u16::<LittleEndian>()
+        header.major_version = reader
+            .read_u16::<LittleEndian>()
             .map_err(|e| HwpError::IoError(e))?;
-        header.byte_order = reader.read_u16::<LittleEndian>()
+        header.byte_order = reader
+            .read_u16::<LittleEndian>()
             .map_err(|e| HwpError::IoError(e))?;
-        
+
         // Validate byte order
         if header.byte_order != 0xFFFE {
             return Err(HwpError::InvalidFormat {
-                reason: "Invalid byte order marker".to_string()
+                reason: "Invalid byte order marker".to_string(),
             });
         }
-        
+
         // Read sector sizes
-        header.sector_shift = reader.read_u16::<LittleEndian>()
+        header.sector_shift = reader
+            .read_u16::<LittleEndian>()
             .map_err(|e| HwpError::IoError(e))?;
-        header.mini_sector_shift = reader.read_u16::<LittleEndian>()
+        header.mini_sector_shift = reader
+            .read_u16::<LittleEndian>()
             .map_err(|e| HwpError::IoError(e))?;
-        
+
         // Read reserved bytes
-        reader.read_exact(&mut header.reserved)
+        reader
+            .read_exact(&mut header.reserved)
             .map_err(|e| HwpError::IoError(e))?;
-        
+
         // Read sector counts
-        header.total_sectors = reader.read_u32::<LittleEndian>()
+        header.total_sectors = reader
+            .read_u32::<LittleEndian>()
             .map_err(|e| HwpError::IoError(e))?;
-        header.fat_sectors = reader.read_u32::<LittleEndian>()
+        header.fat_sectors = reader
+            .read_u32::<LittleEndian>()
             .map_err(|e| HwpError::IoError(e))?;
-        
+
         // Read directory and mini FAT info
-        header.first_dir_sector = reader.read_u32::<LittleEndian>()
+        header.first_dir_sector = reader
+            .read_u32::<LittleEndian>()
             .map_err(|e| HwpError::IoError(e))?;
-        header.transaction_signature = reader.read_u32::<LittleEndian>()
+        header.transaction_signature = reader
+            .read_u32::<LittleEndian>()
             .map_err(|e| HwpError::IoError(e))?;
-        header.mini_stream_cutoff_size = reader.read_u32::<LittleEndian>()
+        header.mini_stream_cutoff_size = reader
+            .read_u32::<LittleEndian>()
             .map_err(|e| HwpError::IoError(e))?;
-        header.first_mini_fat_sector = reader.read_u32::<LittleEndian>()
+        header.first_mini_fat_sector = reader
+            .read_u32::<LittleEndian>()
             .map_err(|e| HwpError::IoError(e))?;
-        header.mini_fat_sectors = reader.read_u32::<LittleEndian>()
+        header.mini_fat_sectors = reader
+            .read_u32::<LittleEndian>()
             .map_err(|e| HwpError::IoError(e))?;
-        
+
         // Read DIFAT info
-        header.first_difat_sector = reader.read_u32::<LittleEndian>()
+        header.first_difat_sector = reader
+            .read_u32::<LittleEndian>()
             .map_err(|e| HwpError::IoError(e))?;
-        header.difat_sectors = reader.read_u32::<LittleEndian>()
+        header.difat_sectors = reader
+            .read_u32::<LittleEndian>()
             .map_err(|e| HwpError::IoError(e))?;
-        
+
         // Read DIFAT array (first 109 FAT sector positions)
         for i in 0..109 {
-            header.difat[i] = reader.read_u32::<LittleEndian>()
+            header.difat[i] = reader
+                .read_u32::<LittleEndian>()
                 .map_err(|e| HwpError::IoError(e))?;
         }
-        
+
         Ok(header)
     }
-    
+
     /// Get the sector size in bytes
     pub fn sector_size(&self) -> u32 {
         1 << self.sector_shift
     }
-    
+
     /// Get the mini sector size in bytes
     pub fn mini_sector_size(&self) -> u32 {
         1 << self.mini_sector_shift
     }
-    
+
     /// Check if this is a valid version 3 or 4 CFB file
     pub fn is_valid_version(&self) -> bool {
         matches!(self.major_version, 3 | 4)
@@ -164,13 +183,16 @@ impl CfbHeader {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_cfb_header_size() {
         // CFB header should be exactly 512 bytes
-        assert_eq!(8 + 16 + 2 + 2 + 2 + 2 + 2 + 6 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + (109 * 4), 512);
+        assert_eq!(
+            8 + 16 + 2 + 2 + 2 + 2 + 2 + 6 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + (109 * 4),
+            512
+        );
     }
-    
+
     #[test]
     fn test_sector_sizes() {
         let mut header = CfbHeader {
@@ -193,10 +215,10 @@ mod tests {
             difat_sectors: 0,
             difat: [0xFFFFFFFE; 109],
         };
-        
+
         assert_eq!(header.sector_size(), 512);
         assert_eq!(header.mini_sector_size(), 64);
-        
+
         header.sector_shift = 12;
         assert_eq!(header.sector_size(), 4096);
     }

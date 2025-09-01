@@ -5,46 +5,36 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum CliError {
     #[error("Failed to parse HWP file '{file}': {details}")]
-    ParseError {
-        file: PathBuf,
-        details: String,
-    },
-    
+    ParseError { file: PathBuf, details: String },
+
     #[error("Unsupported output format '{format}'. Supported formats: {}", .supported.join(", "))]
     UnsupportedFormat {
         format: String,
         supported: Vec<String>,
     },
-    
+
     #[error("Batch operation failed for '{file}': {details}")]
-    BatchError {
-        file: PathBuf,
-        details: String,
-    },
-    
+    BatchError { file: PathBuf, details: String },
+
     #[error("Batch processing failed: {successful} succeeded, {failed} failed out of {total}")]
     BatchSummaryError {
         total: usize,
         successful: usize,
         failed: usize,
     },
-    
+
     #[error("Configuration error: {0}")]
     ConfigError(String),
-    
+
     #[error("Search pattern error: {0}")]
     SearchError(String),
-    
+
     #[error("No files found matching pattern: {pattern}")]
-    NoFilesFound {
-        pattern: String,
-    },
-    
+    NoFilesFound { pattern: String },
+
     #[error("Output directory does not exist: {path}")]
-    OutputDirectoryNotFound {
-        path: PathBuf,
-    },
-    
+    OutputDirectoryNotFound { path: PathBuf },
+
     #[error("Pipeline error: {0}")]
     PipelineError(String),
 }

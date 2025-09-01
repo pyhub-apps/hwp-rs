@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Args;
-use hwp_parser::{parse, OutputFormat, FormatOptions};
 use hwp_core::HwpDocument;
+use hwp_parser::{parse, FormatOptions, OutputFormat};
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
@@ -10,63 +10,63 @@ use std::path::PathBuf;
 pub struct ExtractCommand {
     /// Input HWP file path
     pub input: PathBuf,
-    
+
     /// Output format (text, markdown, json, html)
     #[arg(short, long, default_value = "text")]
     pub format: String,
-    
+
     /// Output file path (stdout if not specified)
     #[arg(short, long)]
     pub output: Option<PathBuf>,
-    
+
     /// Preserve formatting information
     #[arg(long)]
     pub preserve_formatting: bool,
-    
+
     /// Include document metadata
     #[arg(long)]
     pub include_metadata: bool,
-    
+
     /// Extract specific sections (comma-separated, e.g., "1,3,5")
     #[arg(long)]
     pub sections: Option<String>,
-    
+
     /// Extract specific paragraph range (e.g., "1-10" or "5-")
     #[arg(long)]
     pub paragraphs: Option<String>,
-    
+
     /// Extract tables only
     #[arg(long)]
     pub tables_only: bool,
-    
+
     /// Extract images only
     #[arg(long)]
     pub images_only: bool,
-    
+
     /// Extract equations only
     #[arg(long)]
     pub equations_only: bool,
-    
+
     /// Search and extract matching content
     #[arg(long)]
     pub search: Option<String>,
-    
+
     /// Context lines around search matches
     #[arg(long, default_value = "0")]
     pub context: usize,
-    
+
     /// Line wrap width for plain text
     #[arg(long)]
     pub text_width: Option<usize>,
-    
+
     /// Generate table of contents for Markdown
     #[arg(long)]
     pub markdown_toc: bool,
-    
+
     /// Pretty print JSON output
     #[arg(long)]
     pub json_pretty: bool,
-    
+
     /// Include styles in JSON output
     #[arg(long)]
     pub json_include_styles: bool,
@@ -77,7 +77,7 @@ impl ExtractCommand {
         // Read and parse the HWP file
         let hwp_data = fs::read(&self.input)?;
         let document = parse(&hwp_data)?;
-        
+
         // Build format options
         let mut options = FormatOptions::default();
         options.text_width = self.text_width;
@@ -86,7 +86,7 @@ impl ExtractCommand {
         options.json_include_styles = self.json_include_styles;
         options.include_metadata = self.include_metadata;
         options.include_styles = self.json_include_styles;
-        
+
         // Extract content based on format
         let output = if self.format == "text" || self.format == "txt" {
             // Handle special extraction modes
@@ -118,11 +118,11 @@ impl ExtractCommand {
                     return Err(anyhow::anyhow!("Unsupported format: {}", self.format));
                 }
             };
-            
+
             let formatter = format.create_formatter(options);
             formatter.format_document(&document)?
         };
-        
+
         // Write output
         if let Some(output_path) = &self.output {
             let mut file = fs::File::create(output_path)?;
@@ -131,10 +131,10 @@ impl ExtractCommand {
         } else {
             print!("{}", output);
         }
-        
+
         Ok(())
     }
-    
+
     fn parse_range(&self, range_str: &str) -> Result<(Option<usize>, Option<usize>)> {
         if range_str.contains('-') {
             let parts: Vec<&str> = range_str.split('-').collect();
@@ -157,12 +157,12 @@ impl ExtractCommand {
             Ok((Some(num), Some(num)))
         }
     }
-    
+
     fn extract_paragraphs(&self, document: &HwpDocument, range_str: &str) -> Result<String> {
         let mut result = String::new();
         let (start, end) = self.parse_range(range_str)?;
         let start = start.unwrap_or(0);
-        
+
         let mut para_count = 0;
         for (section_idx, section) in document.sections.iter().enumerate() {
             for paragraph in &section.paragraphs {
@@ -180,19 +180,19 @@ impl ExtractCommand {
                 para_count += 1;
             }
         }
-        
+
         Ok(result)
     }
-    
+
     fn extract_sections(&self, document: &HwpDocument, sections_str: &str) -> Result<String> {
         let mut result = String::new();
-        
+
         // Parse section numbers
         let section_numbers: Vec<usize> = sections_str
             .split(',')
             .filter_map(|s| s.trim().parse().ok())
             .collect();
-        
+
         for section_num in section_numbers {
             if let Some(section) = document.sections.get(section_num) {
                 result.push_str(&format!("=== Section {} ===\n", section_num));
@@ -207,28 +207,32 @@ impl ExtractCommand {
                 eprintln!("Warning: Section {} not found", section_num);
             }
         }
-        
+
         Ok(result)
     }
-    
+
     fn search_and_extract(&self, document: &HwpDocument, query: &str) -> Result<String> {
         let mut result = String::new();
         let context = self.context;
-        
+
         for (section_idx, section) in document.sections.iter().enumerate() {
             let mut section_matches = Vec::new();
-            
+
             // Find matching paragraphs
             for (para_idx, paragraph) in section.paragraphs.iter().enumerate() {
-                if paragraph.text.to_lowercase().contains(&query.to_lowercase()) {
+                if paragraph
+                    .text
+                    .to_lowercase()
+                    .contains(&query.to_lowercase())
+                {
                     section_matches.push(para_idx);
                 }
             }
-            
+
             // Extract with context
             if !section_matches.is_empty() {
                 result.push_str(&format!("=== Section {} ===\n", section_idx));
-                
+
                 for &match_idx in &section_matches {
                     // Include context before
                     let start = if match_idx >= context {
@@ -236,10 +240,10 @@ impl ExtractCommand {
                     } else {
                         0
                     };
-                    
+
                     // Include context after
                     let end = std::cmp::min(match_idx + context + 1, section.paragraphs.len());
-                    
+
                     for i in start..end {
                         if let Some(para) = section.paragraphs.get(i) {
                             if i == match_idx {
@@ -253,41 +257,43 @@ impl ExtractCommand {
                 }
             }
         }
-        
+
         if result.is_empty() {
             result = format!("No matches found for: {}", query);
         }
-        
+
         Ok(result)
     }
-    
+
     fn extract_tables(&self, document: &HwpDocument) -> Result<String> {
         let mut result = String::new();
         result.push_str("=== Tables Extraction ===\n\n");
-        
+
         // TODO: Implement actual table extraction when table parsing is available
         result.push_str("Table extraction will be available once table parsing is implemented.\n");
-        
+
         Ok(result)
     }
-    
+
     fn extract_images(&self, document: &HwpDocument) -> Result<String> {
         let mut result = String::new();
         result.push_str("=== Images Extraction ===\n\n");
-        
+
         // TODO: Implement actual image extraction when image handling is available
         result.push_str("Image extraction will be available once image handling is implemented.\n");
-        
+
         Ok(result)
     }
-    
+
     fn extract_equations(&self, document: &HwpDocument) -> Result<String> {
         let mut result = String::new();
         result.push_str("=== Equations Extraction ===\n\n");
-        
+
         // TODO: Implement actual equation extraction when equation parsing is available
-        result.push_str("Equation extraction will be available once equation parsing is implemented.\n");
-        
+        result.push_str(
+            "Equation extraction will be available once equation parsing is implemented.\n",
+        );
+
         Ok(result)
     }
 }

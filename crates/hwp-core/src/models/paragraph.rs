@@ -4,19 +4,19 @@
 pub struct Paragraph {
     /// Paragraph header
     pub header: ParagraphHeader,
-    
+
     /// Text content
     pub text: String,
-    
+
     /// Character shapes
     pub char_shapes: Vec<CharShapePos>,
-    
+
     /// Line segments
     pub line_segments: Vec<LineSegment>,
-    
+
     /// Range tags
     pub range_tags: Vec<RangeTag>,
-    
+
     /// Control characters
     pub controls: Vec<Control>,
 }
@@ -33,7 +33,7 @@ impl Paragraph {
             controls: Vec::new(),
         }
     }
-    
+
     /// Get the text content of the paragraph
     pub fn get_text(&self) -> String {
         self.text.clone()
@@ -106,8 +106,8 @@ pub struct Control {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ControlType {
-    Character(u16),           // Regular control character
-    Inline(u32),              // Inline control object
+    Character(u16),            // Regular control character
+    Inline(u32),               // Inline control object
     Extended(ExtendedControl), // Extended control object
 }
 
@@ -139,7 +139,7 @@ impl ExtendedControl {
     /// Create from control ID
     pub fn from_ctrl_id(id: u32) -> Self {
         use crate::constants::ctrl_id::CtrlId;
-        
+
         match CtrlId::from_u32(id) {
             Some(CtrlId::Table) => Self::Table,
             Some(CtrlId::GenShapeObject) => Self::GenShapeObject,

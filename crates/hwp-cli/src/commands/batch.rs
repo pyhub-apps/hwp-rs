@@ -1,45 +1,45 @@
-use anyhow::{Result, Context};
-use clap::{Args, Subcommand};
-use std::path::PathBuf;
-use std::fs;
 use crate::batch::{BatchProcessor, ErrorStrategy};
-use crate::commands::{ExtractCommand, InfoCommand, ConvertCommand};
+use crate::commands::{ConvertCommand, ExtractCommand, InfoCommand};
+use anyhow::{Context, Result};
+use clap::{Args, Subcommand};
 use colored::*;
+use std::fs;
+use std::path::PathBuf;
 
 /// Batch processing command
 #[derive(Args, Debug)]
 pub struct BatchCommand {
     /// Input directory or glob pattern
     pub input: String,
-    
+
     /// Output directory
     #[arg(short, long)]
     pub output_dir: PathBuf,
-    
+
     /// Process files recursively
     #[arg(short, long)]
     pub recursive: bool,
-    
+
     /// Number of parallel jobs
     #[arg(short = 'j', long, default_value = "4")]
     pub parallel: usize,
-    
+
     /// Continue processing on errors
     #[arg(long)]
     pub continue_on_error: bool,
-    
+
     /// Generate summary report
     #[arg(long)]
     pub report: bool,
-    
+
     /// Report output file
     #[arg(long)]
     pub report_file: Option<PathBuf>,
-    
+
     /// Overwrite existing files
     #[arg(long)]
     pub overwrite: bool,
-    
+
     #[command(subcommand)]
     pub operation: BatchOperation,
 }
@@ -51,56 +51,56 @@ pub enum BatchOperation {
         /// Output format
         #[arg(short, long, default_value = "text")]
         format: String,
-        
+
         /// Preserve formatting
         #[arg(long)]
         preserve_formatting: bool,
-        
+
         /// Include metadata
         #[arg(long)]
         include_metadata: bool,
     },
-    
+
     /// Convert multiple files to another format
     Convert {
         /// Target format
         #[arg(short = 't', long = "to", default_value = "text")]
         format: String,
-        
+
         /// Pretty print JSON
         #[arg(long)]
         json_pretty: bool,
-        
+
         /// Generate TOC for Markdown
         #[arg(long)]
         markdown_toc: bool,
     },
-    
+
     /// Generate info reports for multiple files
     Info {
         /// Output format
         #[arg(short, long, default_value = "json")]
         format: String,
-        
+
         /// Include statistics
         #[arg(long)]
         stats: bool,
-        
+
         /// Include font information
         #[arg(long)]
         fonts: bool,
-        
+
         /// Include style information
         #[arg(long)]
         styles: bool,
     },
-    
+
     /// Validate multiple files
     Validate {
         /// Strict validation
         #[arg(long)]
         strict: bool,
-        
+
         /// Check integrity
         #[arg(long)]
         check_integrity: bool,
@@ -111,19 +111,18 @@ impl BatchCommand {
     pub fn execute(&self) -> Result<()> {
         // Ensure output directory exists
         if !self.output_dir.exists() {
-            fs::create_dir_all(&self.output_dir)
-                .context("Failed to create output directory")?;
+            fs::create_dir_all(&self.output_dir).context("Failed to create output directory")?;
         }
-        
+
         // Create batch processor
         let error_strategy = if self.continue_on_error {
             ErrorStrategy::Skip
         } else {
             ErrorStrategy::FailFast
         };
-        
+
         let batch_processor = BatchProcessor::new(self.parallel, error_strategy);
-        
+
         // Discover files
         let files = if self.input.contains('*') || self.input.contains('?') {
             batch_processor.discover_glob(&self.input)?
@@ -131,16 +130,18 @@ impl BatchCommand {
             let path = PathBuf::from(&self.input);
             batch_processor.discover_files(&path, self.recursive)?
         };
-        
+
         if files.is_empty() {
-            eprintln!("{}: No HWP files found in '{}'", 
+            eprintln!(
+                "{}: No HWP files found in '{}'",
                 "Warning".yellow(),
-                self.input);
+                self.input
+            );
             return Ok(());
         }
-        
+
         eprintln!("Found {} HWP files to process", files.len());
-        
+
         // Execute batch operation
         let operation_name = match &self.operation {
             BatchOperation::Extract { .. } => "Batch Extract",
@@ -148,33 +149,32 @@ impl BatchCommand {
             BatchOperation::Info { .. } => "Batch Info",
             BatchOperation::Validate { .. } => "Batch Validate",
         };
-        
-        let result = batch_processor.process_files(
-            files,
-            operation_name,
-            |file| self.process_single_file(file),
-        )?;
-        
+
+        let result = batch_processor
+            .process_files(files, operation_name, |file| self.process_single_file(file))?;
+
         // Print summary
         println!("\n{}", "=".repeat(60));
         println!("{}", result.summary().green().bold());
-        
+
         if result.failed > 0 {
             println!("\n{}", "Failed files:".red().bold());
             for process_result in &result.results {
                 if !process_result.success {
-                    println!("  {} - {}", 
+                    println!(
+                        "  {} - {}",
                         process_result.path.display(),
-                        process_result.message);
+                        process_result.message
+                    );
                 }
             }
         }
-        
+
         // Generate report if requested
         if self.report {
             self.generate_report(&result)?;
         }
-        
+
         // Return error if any files failed and not continuing on error
         if result.failed > 0 && !self.continue_on_error {
             return Err(anyhow::anyhow!(
@@ -182,20 +182,24 @@ impl BatchCommand {
                 result.failed
             ));
         }
-        
+
         Ok(())
     }
-    
+
     fn process_single_file(&self, file: &std::path::Path) -> Result<String> {
         let output_path = self.get_output_path(file)?;
-        
+
         // Check if file exists and overwrite flag
         if output_path.exists() && !self.overwrite {
             return Ok(format!("Skipped (file exists)"));
         }
-        
+
         match &self.operation {
-            BatchOperation::Extract { format, preserve_formatting, include_metadata } => {
+            BatchOperation::Extract {
+                format,
+                preserve_formatting,
+                include_metadata,
+            } => {
                 let cmd = ExtractCommand {
                     input: file.to_path_buf(),
                     format: format.clone(),
@@ -217,8 +221,12 @@ impl BatchCommand {
                 cmd.execute()?;
                 Ok("Extracted".to_string())
             }
-            
-            BatchOperation::Convert { format, json_pretty, markdown_toc } => {
+
+            BatchOperation::Convert {
+                format,
+                json_pretty,
+                markdown_toc,
+            } => {
                 let cmd = ConvertCommand {
                     input: file.display().to_string(),
                     format: format.clone(),
@@ -236,8 +244,13 @@ impl BatchCommand {
                 cmd.execute()?;
                 Ok("Converted".to_string())
             }
-            
-            BatchOperation::Info { format, stats, fonts, styles } => {
+
+            BatchOperation::Info {
+                format,
+                stats,
+                fonts,
+                styles,
+            } => {
                 let cmd = InfoCommand {
                     input: file.to_path_buf(),
                     format: format.clone(),
@@ -256,8 +269,11 @@ impl BatchCommand {
                 cmd.execute()?;
                 Ok("Info generated".to_string())
             }
-            
-            BatchOperation::Validate { strict, check_integrity } => {
+
+            BatchOperation::Validate {
+                strict,
+                check_integrity,
+            } => {
                 // For validate, we just check and report
                 use crate::commands::ValidateCommand;
                 let cmd = ValidateCommand {
@@ -273,32 +289,30 @@ impl BatchCommand {
             }
         }
     }
-    
+
     fn get_output_path(&self, input_file: &std::path::Path) -> Result<PathBuf> {
         let file_name = input_file
             .file_stem()
             .context("Invalid file name")?
             .to_string_lossy();
-        
+
         let extension = match &self.operation {
-            BatchOperation::Extract { format, .. } | 
-            BatchOperation::Convert { format, .. } |
-            BatchOperation::Info { format, .. } => {
-                match format.as_str() {
-                    "json" => "json",
-                    "markdown" | "md" => "md",
-                    "html" => "html",
-                    "yaml" | "yml" => "yaml",
-                    "csv" => "csv",
-                    _ => "txt",
-                }
-            }
+            BatchOperation::Extract { format, .. }
+            | BatchOperation::Convert { format, .. }
+            | BatchOperation::Info { format, .. } => match format.as_str() {
+                "json" => "json",
+                "markdown" | "md" => "md",
+                "html" => "html",
+                "yaml" | "yml" => "yaml",
+                "csv" => "csv",
+                _ => "txt",
+            },
             BatchOperation::Validate { .. } => "validation.json",
         };
-        
+
         Ok(self.output_dir.join(format!("{}.{}", file_name, extension)))
     }
-    
+
     fn generate_report(&self, result: &crate::batch::BatchResult) -> Result<()> {
         let report = serde_json::json!({
             "operation": format!("{:?}", self.operation),
@@ -318,9 +332,9 @@ impl BatchCommand {
                 })
             }).collect::<Vec<_>>(),
         });
-        
+
         let report_str = serde_json::to_string_pretty(&report)?;
-        
+
         if let Some(report_file) = &self.report_file {
             fs::write(report_file, report_str)?;
             eprintln!("\nReport written to: {}", report_file.display());
@@ -328,7 +342,7 @@ impl BatchCommand {
             println!("\n{}", "Batch Processing Report:".cyan().bold());
             println!("{}", report_str);
         }
-        
+
         Ok(())
     }
 }

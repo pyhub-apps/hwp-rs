@@ -6,16 +6,16 @@ use crate::models::Paragraph;
 pub struct Section {
     /// Section definition
     pub definition: SectionDefinition,
-    
+
     /// Paragraphs in this section
     pub paragraphs: Vec<Paragraph>,
-    
+
     /// Page definitions
     pub page_defs: Vec<PageDef>,
-    
+
     /// Footnote shape
     pub footnote_shape: Option<FootnoteShape>,
-    
+
     /// Page border fill
     pub page_border_fill: Option<PageBorderFill>,
 }
@@ -31,14 +31,14 @@ impl Section {
             page_border_fill: None,
         }
     }
-    
+
     /// Get the page count for this section
     pub fn page_count(&self) -> usize {
         // Simple estimation based on content
         // In real implementation, this would calculate based on layout
         1
     }
-    
+
     /// Get all text content from the section
     pub fn get_text(&self) -> String {
         let mut text = String::new();
@@ -102,8 +102,8 @@ impl Default for PageDef {
         // A4 size defaults (210mm x 297mm in HWPUNIT)
         // 1mm = 7200 HWPUNIT
         Self {
-            width: 59528,      // 210mm * 283.465 (approximately)
-            height: 84188,     // 297mm * 283.465 (approximately)
+            width: 59528,  // 210mm * 283.465 (approximately)
+            height: 84188, // 297mm * 283.465 (approximately)
             padding_left: 8504,
             padding_right: 8504,
             padding_top: 5668,

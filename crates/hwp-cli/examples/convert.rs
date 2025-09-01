@@ -1,8 +1,8 @@
+use clap::{Arg, Command};
+use hwp_parser::{parse, FormatOptions, MarkdownFlavor, OutputFormat};
 use std::fs;
 use std::io::Write;
 use std::path::Path;
-use clap::{Arg, Command};
-use hwp_parser::{parse, OutputFormat, FormatOptions, MarkdownFlavor};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let matches = Command::new("hwp-convert")
@@ -76,19 +76,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .help("Generate table of contents for Markdown"),
         )
         .get_matches();
-    
+
     // Parse arguments
     let input_path = matches.get_one::<String>("input").unwrap();
     let output_path = matches.get_one::<String>("output");
     let format_str = matches.get_one::<String>("format").unwrap();
-    
+
     // Parse output format
     let output_format = OutputFormat::from_str(format_str)
         .ok_or_else(|| format!("Unknown format: {}", format_str))?;
-    
+
     // Build format options
     let mut options = FormatOptions::default();
-    
+
     // JSON options
     if matches.get_flag("json-compact") {
         options.json_pretty = false;
@@ -96,13 +96,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         options.json_pretty = true;
     }
     options.json_include_styles = matches.get_flag("json-include-styles");
-    
+
     // Text options
     if let Some(width) = matches.get_one::<usize>("text-width") {
         options.text_width = Some(*width);
     }
     options.text_page_breaks = matches.get_flag("text-page-breaks");
-    
+
     // Markdown options
     if let Some(flavor) = matches.get_one::<String>("md-flavor") {
         options.markdown_flavor = match flavor.to_lowercase().as_str() {
@@ -112,20 +112,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
     }
     options.markdown_toc = matches.get_flag("md-toc");
-    
+
     // Read and parse HWP file
     println!("Reading HWP file: {}", input_path);
     let hwp_data = fs::read(input_path)?;
-    
+
     println!("Parsing HWP document...");
     let document = parse(&hwp_data)?;
-    
+
     println!("Converting to {} format...", format_str);
-    
+
     // Create formatter and convert
     let formatter = output_format.create_formatter(options);
     let output = formatter.format_document(&document)?;
-    
+
     // Write output
     if let Some(output_file) = output_path {
         println!("Writing output to: {}", output_file);
@@ -136,6 +136,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Write to stdout
         print!("{}", output);
     }
-    
+
     Ok(())
 }

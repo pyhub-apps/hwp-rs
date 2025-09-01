@@ -1,5 +1,5 @@
-use hwp_core::{Result, HwpError};
 use hwp_core::models::record::RecordHeader;
+use hwp_core::{HwpError, Result};
 
 /// Context for record validation
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -16,15 +16,20 @@ pub enum RecordContext {
 pub trait RecordValidator {
     /// Validate record header against available data
     fn validate_header(&self, header: &RecordHeader, available: usize) -> Result<()>;
-    
+
     /// Validate if tag ID is valid for the given context
     fn validate_tag_id(&self, tag_id: u16, context: RecordContext) -> bool;
-    
+
     /// Validate if size is reasonable for the given tag
     fn validate_size(&self, size: u32, tag_id: u16) -> Result<()>;
-    
+
     /// Validate record boundaries and alignment
-    fn validate_boundaries(&self, header: &RecordHeader, position: usize, total_size: usize) -> Result<()>;
+    fn validate_boundaries(
+        &self,
+        header: &RecordHeader,
+        position: usize,
+        total_size: usize,
+    ) -> Result<()>;
 }
 
 /// Default implementation of RecordValidator
@@ -52,7 +57,7 @@ impl DefaultRecordValidator {
             allow_unknown_tags,
         }
     }
-    
+
     /// Create a lenient validator that allows unknown tags
     pub fn lenient() -> Self {
         Self {
@@ -71,7 +76,7 @@ impl RecordValidator for DefaultRecordValidator {
         } else {
             header.size() as usize
         };
-        
+
         if required_size > available {
             return Err(HwpError::ValidationError {
                 message: format!(
@@ -80,13 +85,13 @@ impl RecordValidator for DefaultRecordValidator {
                 ),
             });
         }
-        
+
         Ok(())
     }
-    
+
     fn validate_tag_id(&self, tag_id: u16, context: RecordContext) -> bool {
         use hwp_core::constants::tag_id::{doc_info, section};
-        
+
         match context {
             RecordContext::DocInfo => {
                 matches!(
@@ -151,7 +156,7 @@ impl RecordValidator for DefaultRecordValidator {
             RecordContext::Unknown => self.allow_unknown_tags,
         }
     }
-    
+
     fn validate_size(&self, size: u32, tag_id: u16) -> Result<()> {
         // Global maximum size check
         if size > self.max_record_size {
@@ -162,10 +167,10 @@ impl RecordValidator for DefaultRecordValidator {
                 ),
             });
         }
-        
+
         // Tag-specific size validation
         use hwp_core::constants::tag_id::doc_info;
-        
+
         match tag_id {
             doc_info::DOCUMENT_PROPERTIES => {
                 // Document properties should be at least 22 bytes
@@ -182,10 +187,7 @@ impl RecordValidator for DefaultRecordValidator {
                 // Face name should be at least 3 bytes (properties + length)
                 if size < 3 {
                     return Err(HwpError::ValidationError {
-                        message: format!(
-                            "Face name record too small: {} bytes (minimum 3)",
-                            size
-                        ),
+                        message: format!("Face name record too small: {} bytes (minimum 3)", size),
                     });
                 }
             }
@@ -193,13 +195,18 @@ impl RecordValidator for DefaultRecordValidator {
                 // No specific validation for other tags yet
             }
         }
-        
+
         Ok(())
     }
-    
-    fn validate_boundaries(&self, header: &RecordHeader, position: usize, total_size: usize) -> Result<()> {
+
+    fn validate_boundaries(
+        &self,
+        header: &RecordHeader,
+        position: usize,
+        total_size: usize,
+    ) -> Result<()> {
         let record_end = position + 4 + header.size() as usize;
-        
+
         if record_end > total_size {
             return Err(HwpError::ValidationError {
                 message: format!(
@@ -208,7 +215,7 @@ impl RecordValidator for DefaultRecordValidator {
                 ),
             });
         }
-        
+
         Ok(())
     }
 }
@@ -217,7 +224,7 @@ impl RecordValidator for DefaultRecordValidator {
 pub mod recovery {
     use super::*;
     use crate::reader::ByteReader;
-    
+
     /// Try to find the next valid record header after an error
     pub fn find_next_valid_record(
         reader: &mut ByteReader,
@@ -226,7 +233,7 @@ pub mod recovery {
     ) -> Option<(usize, RecordHeader)> {
         let start_pos = reader.position();
         let mut search_pos = start_pos;
-        
+
         // Scan byte by byte looking for a valid header
         while search_pos + 4 <= reader.len() {
             if let Ok(()) = reader.seek(search_pos) {
@@ -234,7 +241,7 @@ pub mod recovery {
                     let mut array = [0u8; 4];
                     array.copy_from_slice(&header_bytes);
                     let header = RecordHeader::from_bytes(array);
-                    
+
                     // Check if this could be a valid record
                     if validator.validate_tag_id(header.tag_id(), context) {
                         let remaining = reader.len() - search_pos - 4;
@@ -245,13 +252,13 @@ pub mod recovery {
                     }
                 }
             }
-            
+
             search_pos += 1;
         }
-        
+
         None
     }
-    
+
     /// Skip to the next record boundary
     pub fn skip_to_next_record(
         reader: &mut ByteReader,
@@ -263,7 +270,7 @@ pub mod recovery {
         } else {
             current_header.size() as usize
         };
-        
+
         reader.skip(skip_bytes)
     }
 }
@@ -271,65 +278,65 @@ pub mod recovery {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_validate_header_sufficient_data() {
         let validator = DefaultRecordValidator::default();
         // Create header with correct bit layout: tag(10) | level(10) | size(12)
         let value = (0x10_u32) | (0_u32 << 10) | (4_u32 << 20);
         let header = RecordHeader::from_bytes(value.to_le_bytes());
-        
+
         assert!(validator.validate_header(&header, 100).is_ok());
         assert!(validator.validate_header(&header, 4).is_ok());
         assert!(validator.validate_header(&header, 3).is_err());
     }
-    
+
     #[test]
     fn test_validate_tag_id() {
         let validator = DefaultRecordValidator::default();
-        
+
         // Valid DocInfo tags
         assert!(validator.validate_tag_id(0x0010, RecordContext::DocInfo)); // DOCUMENT_PROPERTIES
         assert!(validator.validate_tag_id(0x0013, RecordContext::DocInfo)); // FACE_NAME
-        
+
         // Invalid tag for DocInfo
         assert!(!validator.validate_tag_id(0x9999, RecordContext::DocInfo));
-        
+
         // Valid BodyText tags
         assert!(validator.validate_tag_id(0x0050, RecordContext::BodyText)); // PARA_HEADER
         assert!(validator.validate_tag_id(0x0051, RecordContext::BodyText)); // PARA_TEXT
-        
+
         // Test lenient validator
         let lenient = DefaultRecordValidator::lenient();
         assert!(lenient.validate_tag_id(0x9999, RecordContext::DocInfo));
     }
-    
+
     #[test]
     fn test_validate_size() {
         let validator = DefaultRecordValidator::default();
-        
+
         // Normal size
         assert!(validator.validate_size(1000, 0x0010).is_ok());
-        
+
         // Too large
         assert!(validator.validate_size(200 * 1024 * 1024, 0x0010).is_err());
-        
+
         // Document properties specific validation
         assert!(validator.validate_size(30, 0x0010).is_ok());
         assert!(validator.validate_size(10, 0x0010).is_err()); // Too small
     }
-    
+
     #[test]
     fn test_validate_boundaries() {
         let validator = DefaultRecordValidator::default();
         // Create header with correct bit layout: tag(10) | level(10) | size(12)
         let value = (0x10_u32) | (0_u32 << 10) | (4_u32 << 20);
         let header = RecordHeader::from_bytes(value.to_le_bytes());
-        
+
         // Valid boundaries
         assert!(validator.validate_boundaries(&header, 0, 100).is_ok());
         assert!(validator.validate_boundaries(&header, 10, 18).is_ok()); // 10 + 4 + 4 = 18
-        
+
         // Invalid boundaries
         assert!(validator.validate_boundaries(&header, 10, 17).is_err()); // Not enough space
     }

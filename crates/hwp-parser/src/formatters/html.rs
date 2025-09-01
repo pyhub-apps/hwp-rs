@@ -1,7 +1,7 @@
-use hwp_core::{HwpDocument, Result};
+use crate::formatters::{FormatOptions, OutputFormatter};
 use hwp_core::models::document::DocInfo;
-use hwp_core::models::{Section, Paragraph};
-use crate::formatters::{OutputFormatter, FormatOptions};
+use hwp_core::models::{Paragraph, Section};
+use hwp_core::{HwpDocument, Result};
 
 /// HTML formatter for HWP documents
 pub struct HtmlFormatter {
@@ -12,7 +12,7 @@ impl HtmlFormatter {
     pub fn new(options: FormatOptions) -> Self {
         Self { options }
     }
-    
+
     fn escape_html(text: &str) -> String {
         text.chars()
             .map(|c| match c {
@@ -130,66 +130,71 @@ impl HtmlFormatter {
 impl OutputFormatter for HtmlFormatter {
     fn format_document(&self, document: &HwpDocument) -> Result<String> {
         let mut html = String::new();
-        
+
         // HTML header
         html.push_str("<!DOCTYPE html>\n");
         html.push_str("<html lang=\"ko\">\n");
         html.push_str("<head>\n");
         html.push_str("    <meta charset=\"UTF-8\">\n");
-        html.push_str("    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n");
+        html.push_str(
+            "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n",
+        );
         html.push_str("    <title>HWP Document</title>\n");
-        
+
         // Add CSS styles
         html.push_str("    <style>\n");
         html.push_str(HtmlFormatter::get_default_css());
         html.push_str("    </style>\n");
-        
+
         html.push_str("</head>\n");
         html.push_str("<body>\n");
-        
+
         // Add document metadata if requested
         if self.options.include_metadata {
             html.push_str(&self.format_metadata(&document.doc_info)?);
         }
-        
+
         // Main content container
         html.push_str("    <div class=\"hwp-content\">\n");
-        
+
         // Format sections
         for (idx, section) in document.sections.iter().enumerate() {
-            html.push_str(&format!("        <section class=\"hwp-section\" id=\"section-{}\">\n", idx));
-            
+            html.push_str(&format!(
+                "        <section class=\"hwp-section\" id=\"section-{}\">\n",
+                idx
+            ));
+
             // Format paragraphs
             for paragraph in &section.paragraphs {
                 if !paragraph.text.is_empty() {
                     let escaped_text = Self::escape_html(&paragraph.text);
-                    
+
                     html.push_str(&format!(
                         "            <p class=\"hwp-paragraph\">{}</p>\n",
                         escaped_text
                     ));
                 }
             }
-            
+
             html.push_str("        </section>\n");
         }
-        
+
         html.push_str("    </div>\n");
-        
+
         // HTML footer
         html.push_str("</body>\n");
         html.push_str("</html>\n");
-        
+
         Ok(html)
     }
-    
+
     fn format_metadata(&self, doc_info: &DocInfo) -> Result<String> {
         let mut html = String::new();
-        
+
         html.push_str("    <div class=\"hwp-metadata\">\n");
         html.push_str("        <h2>Document Information</h2>\n");
         html.push_str("        <dl>\n");
-        
+
         // Document properties
         html.push_str(&format!(
             "            <dt>Sections</dt><dd>{}</dd>\n",
@@ -203,7 +208,7 @@ impl OutputFormatter for HtmlFormatter {
             "            <dt>Characters</dt><dd>{}</dd>\n",
             doc_info.properties.total_character_count
         ));
-        
+
         // Font information
         if !doc_info.face_names.is_empty() {
             html.push_str("            <dt>Fonts</dt><dd>\n");
@@ -217,28 +222,34 @@ impl OutputFormatter for HtmlFormatter {
             html.push_str("                </ul>\n");
             html.push_str("            </dd>\n");
         }
-        
+
         html.push_str("        </dl>\n");
         html.push_str("    </div>\n");
-        
+
         Ok(html)
     }
-    
+
     fn format_section(&self, section: &Section, index: usize) -> Result<String> {
         let mut html = String::new();
-        html.push_str(&format!("<section class=\"hwp-section\" id=\"section-{}\">\n", index));
-        
+        html.push_str(&format!(
+            "<section class=\"hwp-section\" id=\"section-{}\">\n",
+            index
+        ));
+
         for paragraph in &section.paragraphs {
             if !paragraph.text.is_empty() {
                 let escaped_text = Self::escape_html(&paragraph.text);
-                html.push_str(&format!("    <p class=\"hwp-paragraph\">{}</p>\n", escaped_text));
+                html.push_str(&format!(
+                    "    <p class=\"hwp-paragraph\">{}</p>\n",
+                    escaped_text
+                ));
             }
         }
-        
+
         html.push_str("</section>\n");
         Ok(html)
     }
-    
+
     fn format_paragraph(&self, paragraph: &Paragraph, _index: usize) -> Result<String> {
         let escaped_text = Self::escape_html(&paragraph.text);
         Ok(format!("<p class=\"hwp-paragraph\">{}</p>\n", escaped_text))

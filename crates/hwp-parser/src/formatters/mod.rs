@@ -1,24 +1,24 @@
-pub mod plain_text;
+pub mod html;
 pub mod json;
 pub mod markdown;
-pub mod html;
+pub mod plain_text;
 pub mod yaml;
 
-use hwp_core::{HwpDocument, Result};
-use hwp_core::models::{Section, Paragraph};
 use hwp_core::models::document::DocInfo;
+use hwp_core::models::{Paragraph, Section};
+use hwp_core::{HwpDocument, Result};
 
 /// Common trait for different output formatters
 pub trait OutputFormatter {
     /// Format the entire document
     fn format_document(&self, doc: &HwpDocument) -> Result<String>;
-    
+
     /// Format document metadata
     fn format_metadata(&self, doc_info: &DocInfo) -> Result<String>;
-    
+
     /// Format a section
     fn format_section(&self, section: &Section, index: usize) -> Result<String>;
-    
+
     /// Format a paragraph
     fn format_paragraph(&self, paragraph: &Paragraph, index: usize) -> Result<String>;
 }
@@ -87,7 +87,7 @@ impl OutputFormat {
             OutputFormat::Yaml => Box::new(yaml::YamlFormatter::new(options)),
         }
     }
-    
+
     /// Parse format from string
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
@@ -99,7 +99,7 @@ impl OutputFormat {
             _ => None,
         }
     }
-    
+
     /// Get file extension for this format
     pub fn file_extension(&self) -> &'static str {
         match self {
