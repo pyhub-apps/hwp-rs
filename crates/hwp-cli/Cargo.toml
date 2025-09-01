@@ -1,0 +1,25 @@
+[package]
+name = "hwp-cli"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "Command-line interface for HWP file processing"
+
+[[bin]]
+name = "hwp"
+path = "src/main.rs"
+
+[dependencies]
+hwp-core = { path = "../hwp-core", features = ["serde"] }
+hwp-parser = { path = "../hwp-parser" }
+clap = { workspace = true }
+anyhow = { workspace = true }
+serde_json = { workspace = true }
+env_logger = { workspace = true }
+log = { workspace = true }
+colored = { workspace = true }
+indicatif = { workspace = true }

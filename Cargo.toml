@@ -1,0 +1,59 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/hwp-core",
+    "crates/hwp-parser",
+    "crates/hwp-cli",
+    "crates/hwp-wasm",
+]
+
+[workspace.package]
+version = "0.1.0"
+authors = ["HWP-RS Contributors"]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/yourusername/hwp-rs"
+homepage = "https://github.com/yourusername/hwp-rs"
+rust-version = "1.70"
+
+[workspace.dependencies]
+# Core dependencies
+byteorder = "1.5"
+flate2 = "1.0"
+zip = "0.6"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+anyhow = "1.0"
+encoding_rs = "0.8"
+
+# CLI dependencies
+clap = { version = "4.4", features = ["derive"] }
+indicatif = "0.17"
+colored = "2.0"
+env_logger = "0.10"
+log = "0.4"
+
+# WASM dependencies
+wasm-bindgen = "0.2"
+js-sys = "0.3"
+web-sys = "0.3"
+console_error_panic_hook = "0.1"
+wee_alloc = "0.4"
+
+# Dev dependencies
+criterion = "0.5"
+pretty_assertions = "1.4"
+tempfile = "3.8"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+
+[profile.release-wasm]
+inherits = "release"
+opt-level = "z"
+lto = "fat"
+panic = "abort"

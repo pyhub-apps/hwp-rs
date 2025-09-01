@@ -1,0 +1,189 @@
+use crate::models::{HwpHeader, Section};
+use std::collections::HashMap;
+
+/// Main HWP document structure
+#[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct HwpDocument {
+    /// File header
+    pub header: HwpHeader,
+    
+    /// Document information
+    pub doc_info: DocInfo,
+    
+    /// Document sections
+    pub sections: Vec<Section>,
+    
+    /// Binary data storage
+    pub bin_data: HashMap<u16, Vec<u8>>,
+}
+
+impl HwpDocument {
+    /// Create a new empty document
+    pub fn new(header: HwpHeader) -> Self {
+        Self {
+            header,
+            doc_info: DocInfo::default(),
+            sections: Vec::new(),
+            bin_data: HashMap::new(),
+        }
+    }
+    
+    /// Get the total page count
+    pub fn page_count(&self) -> usize {
+        self.sections.iter().map(|s| s.page_count()).sum()
+    }
+    
+    /// Get all text content from the document
+    pub fn get_text(&self) -> String {
+        let mut text = String::new();
+        for section in &self.sections {
+            text.push_str(&section.get_text());
+            text.push('\n');
+        }
+        text
+    }
+}
+
+/// Document information container
+#[derive(Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct DocInfo {
+    /// Document properties
+    pub properties: DocumentProperties,
+    
+    /// Character shapes
+    pub char_shapes: Vec<CharShape>,
+    
+    /// Paragraph shapes
+    pub para_shapes: Vec<ParaShape>,
+    
+    /// Styles
+    pub styles: Vec<Style>,
+    
+    /// Face names (fonts)
+    pub face_names: Vec<FaceName>,
+    
+    /// Border fills
+    pub border_fills: Vec<BorderFill>,
+}
+
+/// Document properties
+#[derive(Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct DocumentProperties {
+    pub section_count: u16,
+    pub page_start_number: u16,
+    pub footnote_start_number: u16,
+    pub endnote_start_number: u16,
+    pub picture_start_number: u16,
+    pub table_start_number: u16,
+    pub equation_start_number: u16,
+    pub total_character_count: u32,
+    pub total_page_count: u32,
+}
+
+/// Character shape information
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct CharShape {
+    pub face_name_ids: Vec<u16>,
+    pub ratios: Vec<u8>,
+    pub char_spaces: Vec<i8>,
+    pub rel_sizes: Vec<u8>,
+    pub char_offsets: Vec<i8>,
+    pub base_size: u32,
+    pub properties: u32,
+    pub shadow_gap_x: i8,
+    pub shadow_gap_y: i8,
+    pub text_color: u32,
+    pub underline_color: u32,
+    pub shade_color: u32,
+    pub shadow_color: u32,
+    pub border_fill_id: Option<u16>,
+}
+
+/// Paragraph shape information
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct ParaShape {
+    pub properties1: u32,
+    pub left_margin: i32,
+    pub right_margin: i32,
+    pub indent: i32,
+    pub prev_spacing: i32,
+    pub next_spacing: i32,
+    pub line_spacing: i32,
+    pub tab_def_id: u16,
+    pub numbering_id: u16,
+    pub border_fill_id: u16,
+    pub border_offset_left: i16,
+    pub border_offset_right: i16,
+    pub border_offset_top: i16,
+    pub border_offset_bottom: i16,
+    pub properties2: u32,
+    pub properties3: u32,
+    pub line_spacing_type: u32,
+}
+
+/// Style information
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct Style {
+    pub name: String,
+    pub english_name: String,
+    pub properties: u8,
+    pub next_style_id: u8,
+    pub lang_id: u16,
+    pub para_shape_id: u16,
+    pub char_shape_id: u16,
+}
+
+/// Face name (font) information
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct FaceName {
+    pub properties: u8,
+    pub name: String,
+    pub substitute_font_type: Option<u8>,
+    pub substitute_font_name: Option<String>,
+    pub type_info: FaceNameType,
+    pub base_font_name: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct FaceNameType {
+    pub family: u8,
+    pub serif: u8,
+    pub weight: u8,
+    pub proportion: u8,
+    pub contrast: u8,
+    pub stroke_variation: u8,
+    pub arm_style: u8,
+    pub letter_form: u8,
+    pub midline: u8,
+    pub x_height: u8,
+}
+
+/// Border and fill information
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct BorderFill {
+    pub properties: u16,
+    pub left_border: BorderLine,
+    pub right_border: BorderLine,
+    pub top_border: BorderLine,
+    pub bottom_border: BorderLine,
+    pub diagonal_border: BorderLine,
+    pub fill_type: u8,
+    pub fill_data: Vec<u8>,
+}
+
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct BorderLine {
+    pub line_type: u8,
+    pub thickness: u8,
+    pub color: u32,
+}

@@ -1,0 +1,27 @@
+[package]
+name = "hwp-wasm"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "WebAssembly bindings for HWP parser"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+hwp-core = { path = "../hwp-core", features = ["serde"] }
+hwp-parser = { path = "../hwp-parser" }
+wasm-bindgen = { workspace = true }
+js-sys = { workspace = true }
+web-sys = { workspace = true }
+console_error_panic_hook = { workspace = true, optional = true }
+wee_alloc = { workspace = true, optional = true }
+serde_json = { workspace = true }
+
+[features]
+default = ["console_error_panic_hook"]
+wee_alloc = ["dep:wee_alloc"]

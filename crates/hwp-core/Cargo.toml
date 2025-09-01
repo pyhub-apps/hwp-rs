@@ -1,0 +1,23 @@
+[package]
+name = "hwp-core"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "Core data models and constants for HWP file format"
+
+[dependencies]
+serde = { workspace = true, optional = true }
+serde_arrays = { version = "0.1", optional = true }
+thiserror = { workspace = true }
+byteorder = { workspace = true }
+
+[features]
+default = []
+serde = ["dep:serde", "dep:serde_arrays"]
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
