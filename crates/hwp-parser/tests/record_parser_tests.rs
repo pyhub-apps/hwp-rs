@@ -6,9 +6,9 @@ use hwp_core::models::record::{Record, RecordHeader};
 #[test]
 fn test_record_header_parsing() {
     // Test normal size record header
-    // Correct bit layout: tag_id (10 bits) | level (2 bits) | size (20 bits)
-    // 0x0010 (tag) | 0 (level) << 10 | 4 (size) << 12
-    let value = (0x0010_u32) | (0_u32 << 10) | (4_u32 << 12);
+    // Correct bit layout: tag_id (10 bits) | level (10 bits) | size (12 bits)
+    // 0x0010 (tag) | 0 (level) << 10 | 4 (size) << 20
+    let value = (0x0010_u32) | (0_u32 << 10) | (4_u32 << 20);
     let header_bytes = value.to_le_bytes();
     let header = RecordHeader::from_bytes(header_bytes);
     
@@ -21,24 +21,24 @@ fn test_record_header_parsing() {
 #[test]
 fn test_extended_size_record_header() {
     // Test extended size record header
-    // Extended size marker is 0xFFFFF (20 bits all set to 1)
-    // Bit layout: tag_id (10 bits) | level (2 bits) | size (20 bits)
-    // 0x0010 (tag) | 0 (level) << 10 | 0xFFFFF (size) << 12
-    let value = (0x0010_u32) | (0_u32 << 10) | (0xFFFFF_u32 << 12);
+    // Extended size marker is 0xFFF (12 bits all set to 1)
+    // Bit layout: tag_id (10 bits) | level (10 bits) | size (12 bits)
+    // 0x0010 (tag) | 0 (level) << 10 | 0xFFF (size) << 20
+    let value = (0x0010_u32) | (0_u32 << 10) | (0xFFF_u32 << 20);
     let header_bytes = value.to_le_bytes();
     let header = RecordHeader::from_bytes(header_bytes);
     
     assert_eq!(header.tag_id(), 0x0010);
     assert_eq!(header.level(), 0);
-    assert_eq!(header.size(), 0xFFFFF);
+    assert_eq!(header.size(), 0xFFF);
     assert!(header.has_extended_size());
 }
 
 #[test]
 fn test_record_parsing() {
     // Create proper headers with correct bit layout
-    let doc_props_header = ((0x0010_u32) | (0_u32 << 10) | (36_u32 << 12)).to_le_bytes();
-    let face_name_header = ((0x0013_u32) | (0_u32 << 10) | (13_u32 << 12)).to_le_bytes();
+    let doc_props_header = ((0x0010_u32) | (0_u32 << 10) | (36_u32 << 20)).to_le_bytes();
+    let face_name_header = ((0x0013_u32) | (0_u32 << 10) | (13_u32 << 20)).to_le_bytes();
     
     let mut data = vec![];
     

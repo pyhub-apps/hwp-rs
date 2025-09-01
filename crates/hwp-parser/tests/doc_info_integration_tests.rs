@@ -2,8 +2,8 @@ use hwp_parser::parser::doc_info::parse_doc_info;
 
 /// Helper function to create a proper record header
 fn create_header(tag_id: u16, level: u8, size: usize) -> Vec<u8> {
-    // Correct bit layout: tag_id (10 bits) | level (2 bits) | size (20 bits)
-    let value = (tag_id as u32) | ((level as u32) << 10) | ((size as u32) << 12);
+    // Correct bit layout: tag_id (10 bits) | level (10 bits) | size (12 bits)
+    let value = (tag_id as u32) | ((level as u32) << 10) | ((size as u32) << 20);
     value.to_le_bytes().to_vec()
 }
 

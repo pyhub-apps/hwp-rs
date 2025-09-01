@@ -222,10 +222,10 @@ mod tests {
     #[test]
     fn test_parse_simple_record() {
         // Create test data: header (tag=0x0010, level=0, size=4) + data
-        // Header format: tag_id(10 bits) | level(2 bits) | size(20 bits)
+        // Header format: tag_id(10 bits) | level(10 bits) | size(12 bits)
         // 0x0010 = 0b00000_10000, level=0, size=4
-        // Combined: 0b0000_0100_0000_0000_00_00_0001_0000 = 0x00004010
-        let header_value: u32 = (0x0010) | (0 << 10) | (4 << 12);
+        // Combined: tag_id | (level << 10) | (size << 20)
+        let header_value: u32 = (0x0010) | (0 << 10) | (4 << 20);
         let header_bytes = header_value.to_le_bytes();
         
         let mut data = Vec::new();
@@ -244,9 +244,9 @@ mod tests {
     #[test]
     fn test_parse_extended_size_record() {
         // Create test data with extended size
-        // Header format: tag_id(10 bits) | level(2 bits) | size(20 bits)
-        // For extended size, size field = 0xFFFFF (all 20 bits set)
-        let header_value: u32 = (0x0010) | (0 << 10) | (0xFFFFF << 12);
+        // Header format: tag_id(10 bits) | level(10 bits) | size(12 bits)
+        // For extended size, size field = 0xFFF (all 12 bits set)
+        let header_value: u32 = (0x0010) | (0 << 10) | (0xFFF << 20);
         let header_bytes = header_value.to_le_bytes();
         
         let mut data = Vec::new();
@@ -266,11 +266,11 @@ mod tests {
     #[test]
     fn test_parse_multiple_records() {
         // First record header: tag=0x0010, level=0, size=2
-        let header1_value: u32 = (0x0010) | (0 << 10) | (2 << 12);
+        let header1_value: u32 = (0x0010) | (0 << 10) | (2 << 20);
         let header1_bytes = header1_value.to_le_bytes();
         
         // Second record header: tag=0x0011, level=0, size=3
-        let header2_value: u32 = (0x0011) | (0 << 10) | (3 << 12);
+        let header2_value: u32 = (0x0011) | (0 << 10) | (3 << 20);
         let header2_bytes = header2_value.to_le_bytes();
         
         let mut data = Vec::new();

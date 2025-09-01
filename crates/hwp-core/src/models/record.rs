@@ -115,18 +115,18 @@ impl RecordHeader {
         (self.value & 0x3FF) as u16
     }
     
-    /// Get the level (bits 10-11, 2 bits)
+    /// Get the level (bits 10-19, 10 bits)
     pub fn level(&self) -> u8 {
-        ((self.value >> 10) & 0x3) as u8
+        ((self.value >> 10) & 0x3FF) as u8
     }
     
-    /// Get the size (bits 12-31, 20 bits)
+    /// Get the size (bits 20-31, 12 bits)
     pub fn size(&self) -> u32 {
-        self.value >> 12
+        (self.value >> 20) & 0xFFF
     }
     
     /// Check if this record has extended size
     pub fn has_extended_size(&self) -> bool {
-        self.size() == 0xFFFFF  // 20 bits all set to 1
+        self.size() == 0xFFF  // 12 bits all set to 1
     }
 }

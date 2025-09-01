@@ -19,13 +19,13 @@ fn dump_records(data: &[u8], start_offset: usize, max_count: usize) {
         let header_val = parse_u32_le(header_bytes);
 
         let tag_id = (header_val & 0x3FF) as u16;
-        let level = ((header_val >> 10) & 0x3) as u8;
-        let size_field = header_val >> 12;
+        let level = ((header_val >> 10) & 0x3FF) as u8;
+        let size_field = (header_val >> 20) & 0xFFF;
 
         let mut size = size_field as u32;
         let mut header_len = 4usize;
 
-        if size_field == 0xFFFFF {
+        if size_field == 0xFFF {
             if offset + 8 > data.len() {
                 println!("{:04} | {:02X?} ... (truncated) -> invalid extended size", offset, &header_bytes);
                 break;
