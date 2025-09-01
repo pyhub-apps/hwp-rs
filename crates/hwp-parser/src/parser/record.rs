@@ -1,10 +1,18 @@
 use crate::reader::ByteReader;
+use crate::validator::{RecordValidator, DefaultRecordValidator, RecordContext};
 use hwp_core::{HwpError, Result};
 use hwp_core::models::record::{Record, RecordHeader};
+use log::{warn, debug, error};
 
 /// Record parser for HWP tag-based format
 pub struct RecordParser<'a> {
     reader: ByteReader<'a>,
+    validator: Box<dyn RecordValidator>,
+    context: RecordContext,
+    /// Whether to attempt recovery on errors
+    enable_recovery: bool,
+    /// Count of recovered errors
+    recovery_count: usize,
 }
 
 impl<'a> RecordParser<'a> {
@@ -12,16 +20,92 @@ impl<'a> RecordParser<'a> {
     pub fn new(data: &'a [u8]) -> Self {
         Self {
             reader: ByteReader::new(data),
+            validator: Box::new(DefaultRecordValidator::default()),
+            context: RecordContext::Unknown,
+            enable_recovery: false,
+            recovery_count: 0,
+        }
+    }
+    
+    /// Create a new record parser with context
+    pub fn new_with_context(data: &'a [u8], context: RecordContext) -> Self {
+        Self {
+            reader: ByteReader::new(data),
+            validator: Box::new(DefaultRecordValidator::default()),
+            context,
+            enable_recovery: false,
+            recovery_count: 0,
         }
     }
     
     /// Create a record parser from an existing ByteReader
     pub fn from_reader(reader: ByteReader<'a>) -> Self {
-        Self { reader }
+        Self {
+            reader,
+            validator: Box::new(DefaultRecordValidator::default()),
+            context: RecordContext::Unknown,
+            enable_recovery: false,
+            recovery_count: 0,
+        }
+    }
+    
+    /// Enable error recovery mode
+    pub fn enable_recovery(&mut self, enable: bool) {
+        self.enable_recovery = enable;
+    }
+    
+    /// Get the number of recovered errors
+    pub fn recovery_count(&self) -> usize {
+        self.recovery_count
+    }
+    
+    /// Set the validation context
+    pub fn set_context(&mut self, context: RecordContext) {
+        self.context = context;
+    }
+    
+    /// Set a custom validator
+    pub fn set_validator(&mut self, validator: Box<dyn RecordValidator>) {
+        self.validator = validator;
+    }
+    
+    /// Try to recover from a parse error by finding the next valid record
+    fn try_recover(&mut self) -> Result<Option<Record>> {
+        warn!("Attempting to recover from parse error at position {}", self.reader.position());
+        
+        // Use the recovery module to find the next valid record
+        if let Some((new_pos, _header)) = crate::validator::recovery::find_next_valid_record(
+            &mut self.reader,
+            self.validator.as_ref(),
+            self.context,
+        ) {
+            warn!("Found potential valid record at position {}", new_pos);
+            self.reader.seek(new_pos)?;
+            self.recovery_count += 1;
+            
+            // Try to parse from the recovered position
+            self.parse_next_record_internal()
+        } else {
+            warn!("No valid record found during recovery");
+            Ok(None)
+        }
     }
     
     /// Parse the next record from the stream
     pub fn parse_next_record(&mut self) -> Result<Option<Record>> {
+        let result = self.parse_next_record_internal();
+        
+        // If error recovery is enabled and we got an error, try to recover
+        if self.enable_recovery && result.is_err() {
+            warn!("Parse error occurred, attempting recovery: {:?}", result);
+            return self.try_recover();
+        }
+        
+        result
+    }
+    
+    /// Internal method to parse the next record
+    fn parse_next_record_internal(&mut self) -> Result<Option<Record>> {
         if self.reader.is_eof() {
             return Ok(None);
         }
@@ -42,28 +126,48 @@ impl<'a> RecordParser<'a> {
         
         let header = RecordHeader::from_bytes(header_bytes);
         
-        eprintln!("[DEBUG] Raw header bytes: {:02X?}", header_bytes);
-        eprintln!("[DEBUG] Parsed header: tag_id=0x{:04X}, level={}, raw_size={}", 
+        debug!("Raw header bytes: {:02X?}", header_bytes);
+        debug!("Parsed header: tag_id=0x{:04X}, level={}, raw_size={}", 
                  header.tag_id(), header.level(), header.size());
+        
+        // Validate tag ID for the current context
+        if !self.validator.validate_tag_id(header.tag_id(), self.context) {
+            warn!("Invalid tag ID 0x{:04X} for context {:?}", header.tag_id(), self.context);
+            // In lenient mode, we could try to skip and recover
+            // For now, return an error
+            return Err(HwpError::ValidationError {
+                message: format!("Invalid tag ID 0x{:04X} for context {:?}", header.tag_id(), self.context),
+            });
+        }
         
         // Determine the actual size
         let size = if header.has_extended_size() {
             // Extended size: next 4 bytes contain the actual size
             let extended_size = self.reader.read_u32()?;
-            eprintln!("[DEBUG] Record with extended size: tag_id={:04X}, size={}", header.tag_id(), extended_size);
+            debug!("Record with extended size: tag_id={:04X}, size={}", header.tag_id(), extended_size);
             extended_size
         } else {
             let normal_size = header.size();
-            eprintln!("[DEBUG] Record: tag_id={:04X}, size={}", header.tag_id(), normal_size);
+            debug!("Record: tag_id={:04X}, size={}", header.tag_id(), normal_size);
             normal_size
         };
         
-        eprintln!("[DEBUG] Available bytes: {}, Requested bytes: {}", self.reader.remaining(), size);
+        // Validate size
+        self.validator.validate_size(size, header.tag_id())?;
+        
+        // Validate we have enough data
+        self.validator.validate_header(&header, self.reader.remaining())?;
+        
+        debug!("Available bytes: {}, Requested bytes: {}", self.reader.remaining(), size);
         
         // Read the record data
         let data = if size > 0 {
             if size as usize > self.reader.remaining() {
-                eprintln!("[ERROR] Buffer underflow will occur: size={}, remaining={}", size, self.reader.remaining());
+                error!("Buffer underflow will occur: size={}, remaining={}", size, self.reader.remaining());
+                return Err(HwpError::BufferUnderflow {
+                    requested: size as usize,
+                    available: self.reader.remaining(),
+                });
             }
             self.reader.read_bytes(size as usize)?
         } else {
@@ -221,24 +325,24 @@ mod tests {
     
     #[test]
     fn test_parse_simple_record() {
-        // Create test data: header (tag=0x0010, level=0, size=4) + data
+        // Create test data: header (tag=0x0010, level=0, size=30) + data
         // Header format: tag_id(10 bits) | level(10 bits) | size(12 bits)
-        // 0x0010 = 0b00000_10000, level=0, size=4
+        // 0x0010 = DOCUMENT_PROPERTIES, needs minimum 22 bytes
         // Combined: tag_id | (level << 10) | (size << 20)
-        let header_value: u32 = (0x0010) | (0 << 10) | (4 << 20);
+        let header_value: u32 = (0x0010) | (0 << 10) | (30 << 20);
         let header_bytes = header_value.to_le_bytes();
         
         let mut data = Vec::new();
         data.extend_from_slice(&header_bytes);
-        data.extend_from_slice(&[0x01, 0x02, 0x03, 0x04]); // data
+        data.extend_from_slice(&vec![0; 30]); // data
         
-        let mut parser = RecordParser::new(&data);
+        let mut parser = RecordParser::new_with_context(&data, crate::validator::RecordContext::DocInfo);
         let record = parser.parse_next_record().unwrap().unwrap();
         
         assert_eq!(record.tag_id, 0x0010);
         assert_eq!(record.level, 0);
-        assert_eq!(record.size, 4);
-        assert_eq!(record.data, vec![0x01, 0x02, 0x03, 0x04]);
+        assert_eq!(record.size, 30);
+        assert_eq!(record.data.len(), 30);
     }
     
     #[test]
@@ -251,44 +355,44 @@ mod tests {
         
         let mut data = Vec::new();
         data.extend_from_slice(&header_bytes);
-        data.extend_from_slice(&[0x08, 0x00, 0x00, 0x00]); // actual size: 8 bytes
-        data.extend_from_slice(&[0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]); // data
+        data.extend_from_slice(&[30, 0x00, 0x00, 0x00]); // actual size: 30 bytes (minimum for DOCUMENT_PROPERTIES)
+        data.extend_from_slice(&vec![0; 30]); // data
         
-        let mut parser = RecordParser::new(&data);
+        let mut parser = RecordParser::new_with_context(&data, crate::validator::RecordContext::DocInfo);
         let record = parser.parse_next_record().unwrap().unwrap();
         
         assert_eq!(record.tag_id, 0x0010);
         assert_eq!(record.level, 0);
-        assert_eq!(record.size, 8);
-        assert_eq!(record.data, vec![0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]);
+        assert_eq!(record.size, 30);
+        assert_eq!(record.data.len(), 30);
     }
     
     #[test]
     fn test_parse_multiple_records() {
-        // First record header: tag=0x0010, level=0, size=2
-        let header1_value: u32 = (0x0010) | (0 << 10) | (2 << 20);
+        // First record header: tag=0x0010, level=0, size=30 (minimum for DOCUMENT_PROPERTIES)
+        let header1_value: u32 = (0x0010) | (0 << 10) | (30 << 20);
         let header1_bytes = header1_value.to_le_bytes();
         
-        // Second record header: tag=0x0011, level=0, size=3
-        let header2_value: u32 = (0x0011) | (0 << 10) | (3 << 20);
+        // Second record header: tag=0x0013 (FACE_NAME), level=0, size=10
+        let header2_value: u32 = (0x0013) | (0 << 10) | (10 << 20);
         let header2_bytes = header2_value.to_le_bytes();
         
         let mut data = Vec::new();
         data.extend_from_slice(&header1_bytes);
-        data.extend_from_slice(&[0x01, 0x02]); // data for first record
+        data.extend_from_slice(&vec![0; 30]); // data for first record
         data.extend_from_slice(&header2_bytes);
-        data.extend_from_slice(&[0x03, 0x04, 0x05]); // data for second record
+        data.extend_from_slice(&vec![0; 10]); // data for second record
         
-        let mut parser = RecordParser::new(&data);
+        let mut parser = RecordParser::new_with_context(&data, crate::validator::RecordContext::DocInfo);
         let records = parser.parse_all_records().unwrap();
         
         assert_eq!(records.len(), 2);
         
         assert_eq!(records[0].tag_id, 0x0010);
-        assert_eq!(records[0].data, vec![0x01, 0x02]);
+        assert_eq!(records[0].data.len(), 30);
         
-        assert_eq!(records[1].tag_id, 0x0011);
-        assert_eq!(records[1].data, vec![0x03, 0x04, 0x05]);
+        assert_eq!(records[1].tag_id, 0x0013);
+        assert_eq!(records[1].data.len(), 10);
     }
     
     #[test]

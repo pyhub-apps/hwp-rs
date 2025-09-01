@@ -1,4 +1,5 @@
 use hwp_parser::parser::record::{RecordParser, RecordDataParser};
+use hwp_parser::validator::RecordContext;
 use hwp_parser::parser::doc_info_records::*;
 use hwp_core::constants::tag_id::doc_info;
 use hwp_core::models::record::{Record, RecordHeader};
@@ -72,7 +73,7 @@ fn test_record_parsing() {
         0x6C, 0x00, // 'l'
     ]);
     
-    let mut parser = RecordParser::new(&data);
+    let mut parser = RecordParser::new_with_context(&data, RecordContext::DocInfo);
     let records = parser.parse_all_records().unwrap();
     
     assert_eq!(records.len(), 2);
@@ -393,7 +394,7 @@ fn test_record_data_parser_varint() {
 fn test_malformed_record_handling() {
     // Test incomplete record header
     let data = vec![0x10, 0x00]; // Only 2 bytes instead of 4
-    let mut parser = RecordParser::new(&data);
+    let mut parser = RecordParser::new_with_context(&data, RecordContext::DocInfo);
     let result = parser.parse_next_record().unwrap();
     assert!(result.is_none()); // Should return None for incomplete data
     
@@ -402,7 +403,7 @@ fn test_malformed_record_handling() {
         0x10, 0x00, 0x64, 0x00, // header: tag=0x0010, level=0, size=100
         0x01, 0x02, // Only 2 bytes of data instead of 100
     ];
-    let mut parser = RecordParser::new(&data);
+    let mut parser = RecordParser::new_with_context(&data, RecordContext::DocInfo);
     let result = parser.parse_next_record();
     assert!(result.is_err()); // Should return error for insufficient data
 }

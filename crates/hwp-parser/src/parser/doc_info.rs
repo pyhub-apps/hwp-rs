@@ -1,13 +1,14 @@
 use crate::parser::record::RecordParser;
 use crate::parser::doc_info_records::*;
 use crate::reader::ByteReader;
+use crate::validator::RecordContext;
 use hwp_core::constants::tag_id::doc_info;
 use hwp_core::models::document::DocInfo;
 use hwp_core::{HwpError, Result};
 
 /// Parse the DocInfo section from decompressed data
 pub fn parse_doc_info(data: &[u8]) -> Result<DocInfo> {
-    let mut parser = RecordParser::new(data);
+    let mut parser = RecordParser::new_with_context(data, RecordContext::DocInfo);
     let mut doc_info = DocInfo::default();
     
     // Parse all records in the DocInfo section

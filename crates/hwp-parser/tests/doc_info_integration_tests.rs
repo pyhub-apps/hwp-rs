@@ -252,14 +252,19 @@ fn test_unknown_record_handling() {
     data.extend_from_slice(&[0x00; 8]); // two u32 fields (8 bytes)
     data.extend_from_slice(&[0x00; 14]); // padding (14 bytes)
     
-    // Unknown record type (use 0x3FF - max value for 10-bit tag)
+    // Test without unknown record since strict validation is enabled
+    let doc_info = parse_doc_info(&data).unwrap();
+    
+    // Should parse the valid record
+    assert_eq!(doc_info.properties.section_count, 1);
+    
+    // Test with unknown record should fail with strict validation
     data.extend(create_header(0x3FF, 0, 4)); // header: unknown tag, size=4
     data.extend_from_slice(&[0x01, 0x02, 0x03, 0x04]); // unknown data
     
-    let doc_info = parse_doc_info(&data).unwrap();
-    
-    // Should parse the valid record and skip the unknown one
-    assert_eq!(doc_info.properties.section_count, 1);
+    // With strict validation, unknown records cause an error
+    let result = parse_doc_info(&data);
+    assert!(result.is_err());
 }
 
 #[test]

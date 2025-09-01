@@ -57,6 +57,25 @@ impl<'a> ByteReader<'a> {
         Ok(())
     }
     
+    /// Get the total size of the buffer
+    pub fn len(&self) -> usize {
+        self.size
+    }
+    
+    /// Peek at bytes without advancing the cursor
+    pub fn peek_bytes(&mut self, n: usize) -> Result<Vec<u8>> {
+        if self.remaining() < n {
+            return Err(HwpError::BufferUnderflow {
+                requested: n,
+                available: self.remaining(),
+            });
+        }
+        let current_pos = self.position();
+        let result = self.read_bytes(n)?;
+        self.seek(current_pos)?;
+        Ok(result)
+    }
+    
     /// Read a single byte
     pub fn read_u8(&mut self) -> Result<u8> {
         if self.remaining() < 1 {

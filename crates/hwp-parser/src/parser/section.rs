@@ -1,5 +1,6 @@
 use crate::parser::record::RecordParser;
 use crate::reader::ByteReader;
+use crate::validator::RecordContext;
 use hwp_core::constants::tag_id::section;
 use hwp_core::models::paragraph::{ParagraphHeader, CharShapePos, LineSegment};
 use hwp_core::models::section::Section;
@@ -7,8 +8,8 @@ use hwp_core::models::Paragraph;
 use hwp_core::{HwpError, Result};
 
 /// Parse a section from decompressed data
-pub fn parse_section(data: &[u8], section_index: usize) -> Result<Section> {
-    let mut parser = RecordParser::new(data);
+pub fn parse_section(data: &[u8], _section_index: usize) -> Result<Section> {
+    let mut parser = RecordParser::new_with_context(data, RecordContext::BodyText);
     let mut section = Section::new();
     
     // Parse all records in the section

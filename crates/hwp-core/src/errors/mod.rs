@@ -31,6 +31,9 @@ pub enum HwpError {
     
     #[error("Buffer underflow: attempted to read {requested} bytes, but only {available} available")]
     BufferUnderflow { requested: usize, available: usize },
+    
+    #[error("Validation error: {message}")]
+    ValidationError { message: String },
 }
 
 pub type Result<T> = std::result::Result<T, HwpError>;
