@@ -97,7 +97,7 @@ pub fn decompress_hwp(data: &[u8]) -> Result<Vec<u8>> {
             );
             Ok(result)
         }
-        Err(e) => {
+        Err(_e) => {
             eprintln!("[DEBUG] Raw deflate failed, trying with zlib wrapper...");
             // Fallback: Try with zlib wrapper in case the format is different
             decompress_with_zlib_fallback(data, uncompressed_size as usize)

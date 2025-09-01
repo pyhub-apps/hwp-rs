@@ -62,6 +62,11 @@ impl<'a> ByteReader<'a> {
         self.size
     }
 
+    /// Check if the buffer is empty
+    pub fn is_empty(&self) -> bool {
+        self.size == 0
+    }
+
     /// Peek at bytes without advancing the cursor
     pub fn peek_bytes(&mut self, n: usize) -> Result<Vec<u8>> {
         if self.remaining() < n {

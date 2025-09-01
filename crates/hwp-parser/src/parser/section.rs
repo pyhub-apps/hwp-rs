@@ -71,16 +71,18 @@ pub fn parse_section(data: &[u8], _section_index: usize) -> Result<Section> {
 fn parse_para_header(data: &[u8]) -> Result<ParagraphHeader> {
     let mut reader = ByteReader::new(data);
 
-    let mut header = ParagraphHeader::default();
-    header.text_count = reader.read_u32()?;
-    header.control_mask = reader.read_u32()?;
-    header.para_shape_id = reader.read_u16()?;
-    header.style_id = reader.read_u8()?;
-    header.division_type = reader.read_u8()?;
-    header.char_shape_count = reader.read_u16()?;
-    header.range_tag_count = reader.read_u16()?;
-    header.line_align_count = reader.read_u16()?;
-    header.instance_id = reader.read_u32()?;
+    let mut header = ParagraphHeader {
+        text_count: reader.read_u32()?,
+        control_mask: reader.read_u32()?,
+        para_shape_id: reader.read_u16()?,
+        style_id: reader.read_u8()?,
+        division_type: reader.read_u8()?,
+        char_shape_count: reader.read_u16()?,
+        range_tag_count: reader.read_u16()?,
+        line_align_count: reader.read_u16()?,
+        instance_id: reader.read_u32()?,
+        ..Default::default()
+    };
 
     // Optional field based on version
     if reader.remaining() >= 2 {
@@ -231,7 +233,7 @@ fn parse_line_segments(data: &[u8]) -> Result<Vec<LineSegment>> {
 /// Parse all sections from a BodyText stream
 pub fn parse_body_text(data: &[u8]) -> Result<Vec<Section>> {
     let mut sections = Vec::new();
-    let mut section_index = 0;
+    let section_index = 0;
 
     // For now, parse as a single section
     // In reality, we'd need to handle section breaks

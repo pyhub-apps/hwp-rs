@@ -117,7 +117,7 @@ fn parse_cfb_hwp(data: &[u8]) -> Result<HwpDocument> {
         );
 
         // Try to decompress DocInfo stream - HWP v5.x streams are usually compressed
-        let doc_info_data = match try_decompress_stream(&doc_info_stream) {
+        let doc_info_data = match try_decompress_stream(doc_info_stream) {
             Ok(decompressed) => {
                 eprintln!(
                     "[DEBUG] DocInfo decompressed successfully: {} bytes",
@@ -150,7 +150,7 @@ fn parse_cfb_hwp(data: &[u8]) -> Result<HwpDocument> {
         eprintln!("[DEBUG] Stream size: {} bytes", section_stream.size);
 
         // Try to decompress section stream - HWP v5.x sections are usually compressed
-        let section_data = match try_decompress_stream(&section_stream) {
+        let section_data = match try_decompress_stream(section_stream) {
             Ok(decompressed) => {
                 eprintln!(
                     "[DEBUG] Section decompressed successfully: {} bytes",

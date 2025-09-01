@@ -1,6 +1,6 @@
 use hwp_core::models::{Paragraph, Section};
 use hwp_core::HwpDocument;
-use hwp_parser::{FormattedText, TextExtractor};
+use hwp_parser::TextExtractor;
 
 #[test]
 fn test_extract_from_empty_document() {

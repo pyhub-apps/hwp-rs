@@ -87,12 +87,12 @@ impl CfbContainer {
             let offset = (sector + 1) * header.sector_size();
             reader
                 .seek(SeekFrom::Start(offset as u64))
-                .map_err(|e| HwpError::IoError(e))?;
+                .map_err(HwpError::IoError)?;
 
             let mut sector_data = vec![0u8; header.sector_size() as usize];
             reader
                 .read_exact(&mut sector_data)
-                .map_err(|e| HwpError::IoError(e))?;
+                .map_err(HwpError::IoError)?;
 
             for i in 0..entries_per_sector {
                 let start = i * DIR_ENTRY_SIZE;

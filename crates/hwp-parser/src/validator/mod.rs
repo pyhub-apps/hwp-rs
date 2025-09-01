@@ -283,7 +283,7 @@ mod tests {
     fn test_validate_header_sufficient_data() {
         let validator = DefaultRecordValidator::default();
         // Create header with correct bit layout: tag(10) | level(10) | size(12)
-        let value = (0x10_u32) | (0_u32 << 10) | (4_u32 << 20);
+        let value = 0x10_u32 | (4_u32 << 20);
         let header = RecordHeader::from_bytes(value.to_le_bytes());
 
         assert!(validator.validate_header(&header, 100).is_ok());
@@ -330,7 +330,7 @@ mod tests {
     fn test_validate_boundaries() {
         let validator = DefaultRecordValidator::default();
         // Create header with correct bit layout: tag(10) | level(10) | size(12)
-        let value = (0x10_u32) | (0_u32 << 10) | (4_u32 << 20);
+        let value = 0x10_u32 | (4_u32 << 20);
         let header = RecordHeader::from_bytes(value.to_le_bytes());
 
         // Valid boundaries

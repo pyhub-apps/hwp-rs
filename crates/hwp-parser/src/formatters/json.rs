@@ -154,7 +154,7 @@ impl OutputFormatter for JsonFormatter {
         }
     }
 
-    fn format_metadata(&self, doc_info: &DocInfo) -> Result<String> {
+    fn format_metadata(&self, _doc_info: &DocInfo) -> Result<String> {
         let metadata = JsonMetadata {
             title: None, // TODO: Extract when DocInfo is more complete
             author: None,
@@ -253,7 +253,7 @@ impl JsonFormatter {
         }
 
         // Extract paragraph styles
-        for (id, para_shape) in doc_info.para_shapes.iter().enumerate() {
+        for (id, _para_shape) in doc_info.para_shapes.iter().enumerate() {
             styles.paragraph_styles.push(JsonParagraphStyle {
                 id: id as u16,
                 name: format!("ParaStyle{}", id),

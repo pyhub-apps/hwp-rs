@@ -91,12 +91,12 @@ impl DirectoryEntry {
         let mut name_bytes = [0u8; 64];
         cursor
             .read_exact(&mut name_bytes)
-            .map_err(|e| HwpError::IoError(e))?;
+            .map_err(HwpError::IoError)?;
 
         // Read name length
         let name_len = cursor
             .read_u16::<LittleEndian>()
-            .map_err(|e| HwpError::IoError(e))?;
+            .map_err(HwpError::IoError)?;
 
         // Convert name from UTF-16LE
         let name = if name_len > 2 {
@@ -115,53 +115,53 @@ impl DirectoryEntry {
         };
 
         // Read object type
-        let object_type = ObjectType::from(cursor.read_u8().map_err(|e| HwpError::IoError(e))?);
+        let object_type = ObjectType::from(cursor.read_u8().map_err(HwpError::IoError)?);
 
         // Read color flag
-        let color_flag = ColorFlag::from(cursor.read_u8().map_err(|e| HwpError::IoError(e))?);
+        let color_flag = ColorFlag::from(cursor.read_u8().map_err(HwpError::IoError)?);
 
         // Read DIDs
         let left_sibling_did = cursor
             .read_u32::<LittleEndian>()
-            .map_err(|e| HwpError::IoError(e))?;
+            .map_err(HwpError::IoError)?;
         let right_sibling_did = cursor
             .read_u32::<LittleEndian>()
-            .map_err(|e| HwpError::IoError(e))?;
+            .map_err(HwpError::IoError)?;
         let child_did = cursor
             .read_u32::<LittleEndian>()
-            .map_err(|e| HwpError::IoError(e))?;
+            .map_err(HwpError::IoError)?;
 
         // Read CLSID
         let mut clsid = [0u8; 16];
         cursor
             .read_exact(&mut clsid)
-            .map_err(|e| HwpError::IoError(e))?;
+            .map_err(HwpError::IoError)?;
 
         // Read state bits
         let state_bits = cursor
             .read_u32::<LittleEndian>()
-            .map_err(|e| HwpError::IoError(e))?;
+            .map_err(HwpError::IoError)?;
 
         // Read timestamps
         let creation_time = cursor
             .read_u64::<LittleEndian>()
-            .map_err(|e| HwpError::IoError(e))?;
+            .map_err(HwpError::IoError)?;
         let modified_time = cursor
             .read_u64::<LittleEndian>()
-            .map_err(|e| HwpError::IoError(e))?;
+            .map_err(HwpError::IoError)?;
 
         // Read starting sector
         let starting_sector = cursor
             .read_u32::<LittleEndian>()
-            .map_err(|e| HwpError::IoError(e))?;
+            .map_err(HwpError::IoError)?;
 
         // Read stream size
         let stream_size_low = cursor
             .read_u32::<LittleEndian>()
-            .map_err(|e| HwpError::IoError(e))?;
+            .map_err(HwpError::IoError)?;
         let stream_size_high = cursor
             .read_u32::<LittleEndian>()
-            .map_err(|e| HwpError::IoError(e))?;
+            .map_err(HwpError::IoError)?;
 
         Ok(DirectoryEntry {
             name,

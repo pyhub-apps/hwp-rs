@@ -303,7 +303,7 @@ pub fn parse_bin_data(data: &[u8]) -> Result<BinDataEntry> {
     let properties = parser.reader().read_u16()?;
 
     // Extract ID from properties (lower 16 bits)
-    let id = properties & 0xFFFF;
+    let id = properties;
 
     // Link type and compression type
     let link_type = parser.reader().read_u8()?;

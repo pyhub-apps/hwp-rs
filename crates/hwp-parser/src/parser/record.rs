@@ -364,12 +364,12 @@ mod tests {
         // Header format: tag_id(10 bits) | level(10 bits) | size(12 bits)
         // 0x0010 = DOCUMENT_PROPERTIES, needs minimum 22 bytes
         // Combined: tag_id | (level << 10) | (size << 20)
-        let header_value: u32 = (0x0010) | (0 << 10) | (30 << 20);
+        let header_value: u32 = 0x0010 | (30 << 20);
         let header_bytes = header_value.to_le_bytes();
 
         let mut data = Vec::new();
         data.extend_from_slice(&header_bytes);
-        data.extend_from_slice(&vec![0; 30]); // data
+        data.extend_from_slice(&[0; 30]); // data
 
         let mut parser =
             RecordParser::new_with_context(&data, crate::validator::RecordContext::DocInfo);
@@ -386,13 +386,13 @@ mod tests {
         // Create test data with extended size
         // Header format: tag_id(10 bits) | level(10 bits) | size(12 bits)
         // For extended size, size field = 0xFFF (all 12 bits set)
-        let header_value: u32 = (0x0010) | (0 << 10) | (0xFFF << 20);
+        let header_value: u32 = 0x0010 | (0xFFF << 20);
         let header_bytes = header_value.to_le_bytes();
 
         let mut data = Vec::new();
         data.extend_from_slice(&header_bytes);
         data.extend_from_slice(&[30, 0x00, 0x00, 0x00]); // actual size: 30 bytes (minimum for DOCUMENT_PROPERTIES)
-        data.extend_from_slice(&vec![0; 30]); // data
+        data.extend_from_slice(&[0; 30]); // data
 
         let mut parser =
             RecordParser::new_with_context(&data, crate::validator::RecordContext::DocInfo);
@@ -407,18 +407,18 @@ mod tests {
     #[test]
     fn test_parse_multiple_records() {
         // First record header: tag=0x0010, level=0, size=30 (minimum for DOCUMENT_PROPERTIES)
-        let header1_value: u32 = (0x0010) | (0 << 10) | (30 << 20);
+        let header1_value: u32 = 0x0010 | (30 << 20);
         let header1_bytes = header1_value.to_le_bytes();
 
         // Second record header: tag=0x0013 (FACE_NAME), level=0, size=10
-        let header2_value: u32 = (0x0013) | (0 << 10) | (10 << 20);
+        let header2_value: u32 = 0x0013 | (10 << 20);
         let header2_bytes = header2_value.to_le_bytes();
 
         let mut data = Vec::new();
         data.extend_from_slice(&header1_bytes);
-        data.extend_from_slice(&vec![0; 30]); // data for first record
+        data.extend_from_slice(&[0; 30]); // data for first record
         data.extend_from_slice(&header2_bytes);
-        data.extend_from_slice(&vec![0; 10]); // data for second record
+        data.extend_from_slice(&[0; 10]); // data for second record
 
         let mut parser =
             RecordParser::new_with_context(&data, crate::validator::RecordContext::DocInfo);

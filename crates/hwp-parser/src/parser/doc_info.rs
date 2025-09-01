@@ -193,7 +193,6 @@ pub fn parse_doc_info(data: &[u8]) -> Result<DocInfo> {
 
             _ => {
                 // Unknown record type - log and skip
-                #[cfg(feature = "debug")]
                 eprintln!(
                     "Unknown DocInfo record: tag_id=0x{:04X}, size={}",
                     record.tag_id, record.size

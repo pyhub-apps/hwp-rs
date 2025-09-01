@@ -109,15 +109,15 @@ impl Stream {
                 // Bits 12-31: size (20 bits)
                 let tag_id = (header & 0x3FF) as u16;
                 let level = ((header >> 10) & 0x3) as u8;
-                let size = (header >> 12) as u32;
+                let size = header >> 12;
 
                 // Check if this looks like a valid uncompressed record:
                 // - Valid DocInfo tag_ids are typically 0x0010-0x0080
                 // - Valid BodyText tag_ids are typically 0x0042-0x0070
                 // - Level should be 0-3
                 // - Size should be reasonable (less than remaining data)
-                let valid_tag = (tag_id >= 0x0010 && tag_id <= 0x0080)
-                    || (tag_id >= 0x0042 && tag_id <= 0x0070);
+                let valid_tag = (0x0010..=0x0080).contains(&tag_id)
+                    || (0x0042..=0x0070).contains(&tag_id);
                 let valid_level = level <= 3;
                 let valid_size = size > 0 && size as usize <= (self.data.len() - 4);
 
@@ -286,7 +286,7 @@ impl<'a> StreamReader<'a> {
     }
 }
 
-impl<'a> Read for StreamReader<'a> {
+impl Read for StreamReader<'_> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         let available = self.remaining();
         let to_read = buf.len().min(available);
@@ -300,7 +300,7 @@ impl<'a> Read for StreamReader<'a> {
     }
 }
 
-impl<'a> Seek for StreamReader<'a> {
+impl Seek for StreamReader<'_> {
     fn seek(&mut self, pos: std::io::SeekFrom) -> std::io::Result<u64> {
         let new_pos = match pos {
             std::io::SeekFrom::Start(offset) => offset as i64,

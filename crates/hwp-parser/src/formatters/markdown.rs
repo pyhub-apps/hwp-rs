@@ -14,6 +14,7 @@ impl MarkdownFormatter {
     }
 
     /// Escape special Markdown characters
+    #[allow(dead_code)]
     fn escape_markdown(&self, text: &str) -> String {
         let mut result = String::new();
         for ch in text.chars() {
@@ -75,8 +76,8 @@ impl MarkdownFormatter {
         trimmed.starts_with("* ") ||
         trimmed.starts_with("+ ") ||
         // Check for numbered lists
-        trimmed.chars().next().map_or(false, |c| c.is_ascii_digit()) &&
-        trimmed.chars().nth(1).map_or(false, |c| c == '.' || c == ')')
+        trimmed.chars().next().is_some_and(|c| c.is_ascii_digit()) &&
+        trimmed.chars().nth(1).is_some_and(|c| c == '.' || c == ')')
     }
 
     /// Format a list item
@@ -161,7 +162,7 @@ impl OutputFormatter for MarkdownFormatter {
         Ok(markdown.trim().to_string())
     }
 
-    fn format_metadata(&self, doc_info: &DocInfo) -> Result<String> {
+    fn format_metadata(&self, _doc_info: &DocInfo) -> Result<String> {
         // Format as YAML front matter for Markdown
         let mut front_matter = String::from("---\n");
 

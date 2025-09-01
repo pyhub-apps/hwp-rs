@@ -50,7 +50,7 @@ impl CfbHeader {
         // Ensure we're at the beginning
         reader
             .seek(SeekFrom::Start(0))
-            .map_err(|e| HwpError::IoError(e))?;
+            .map_err(HwpError::IoError)?;
 
         let mut header = CfbHeader {
             signature: [0; 8],
@@ -76,7 +76,7 @@ impl CfbHeader {
         // Read signature
         reader
             .read_exact(&mut header.signature)
-            .map_err(|e| HwpError::IoError(e))?;
+            .map_err(HwpError::IoError)?;
 
         // Validate signature
         if header.signature != CFB_SIGNATURE {
@@ -88,18 +88,18 @@ impl CfbHeader {
         // Read CLSID
         reader
             .read_exact(&mut header.clsid)
-            .map_err(|e| HwpError::IoError(e))?;
+            .map_err(HwpError::IoError)?;
 
         // Read version and byte order
         header.minor_version = reader
             .read_u16::<LittleEndian>()
-            .map_err(|e| HwpError::IoError(e))?;
+            .map_err(HwpError::IoError)?;
         header.major_version = reader
             .read_u16::<LittleEndian>()
-            .map_err(|e| HwpError::IoError(e))?;
+            .map_err(HwpError::IoError)?;
         header.byte_order = reader
             .read_u16::<LittleEndian>()
-            .map_err(|e| HwpError::IoError(e))?;
+            .map_err(HwpError::IoError)?;
 
         // Validate byte order
         if header.byte_order != 0xFFFE {
@@ -111,54 +111,54 @@ impl CfbHeader {
         // Read sector sizes
         header.sector_shift = reader
             .read_u16::<LittleEndian>()
-            .map_err(|e| HwpError::IoError(e))?;
+            .map_err(HwpError::IoError)?;
         header.mini_sector_shift = reader
             .read_u16::<LittleEndian>()
-            .map_err(|e| HwpError::IoError(e))?;
+            .map_err(HwpError::IoError)?;
 
         // Read reserved bytes
         reader
             .read_exact(&mut header.reserved)
-            .map_err(|e| HwpError::IoError(e))?;
+            .map_err(HwpError::IoError)?;
 
         // Read sector counts
         header.total_sectors = reader
             .read_u32::<LittleEndian>()
-            .map_err(|e| HwpError::IoError(e))?;
+            .map_err(HwpError::IoError)?;
         header.fat_sectors = reader
             .read_u32::<LittleEndian>()
-            .map_err(|e| HwpError::IoError(e))?;
+            .map_err(HwpError::IoError)?;
 
         // Read directory and mini FAT info
         header.first_dir_sector = reader
             .read_u32::<LittleEndian>()
-            .map_err(|e| HwpError::IoError(e))?;
+            .map_err(HwpError::IoError)?;
         header.transaction_signature = reader
             .read_u32::<LittleEndian>()
-            .map_err(|e| HwpError::IoError(e))?;
+            .map_err(HwpError::IoError)?;
         header.mini_stream_cutoff_size = reader
             .read_u32::<LittleEndian>()
-            .map_err(|e| HwpError::IoError(e))?;
+            .map_err(HwpError::IoError)?;
         header.first_mini_fat_sector = reader
             .read_u32::<LittleEndian>()
-            .map_err(|e| HwpError::IoError(e))?;
+            .map_err(HwpError::IoError)?;
         header.mini_fat_sectors = reader
             .read_u32::<LittleEndian>()
-            .map_err(|e| HwpError::IoError(e))?;
+            .map_err(HwpError::IoError)?;
 
         // Read DIFAT info
         header.first_difat_sector = reader
             .read_u32::<LittleEndian>()
-            .map_err(|e| HwpError::IoError(e))?;
+            .map_err(HwpError::IoError)?;
         header.difat_sectors = reader
             .read_u32::<LittleEndian>()
-            .map_err(|e| HwpError::IoError(e))?;
+            .map_err(HwpError::IoError)?;
 
         // Read DIFAT array (first 109 FAT sector positions)
         for i in 0..109 {
             header.difat[i] = reader
                 .read_u32::<LittleEndian>()
-                .map_err(|e| HwpError::IoError(e))?;
+                .map_err(HwpError::IoError)?;
         }
 
         Ok(header)

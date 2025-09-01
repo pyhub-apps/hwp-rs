@@ -41,13 +41,13 @@ impl FatTable {
                 let offset = (current_difat + 1) * sector_size;
                 reader
                     .seek(SeekFrom::Start(offset as u64))
-                    .map_err(|e| HwpError::IoError(e))?;
+                    .map_err(HwpError::IoError)?;
 
                 // Read DIFAT entries (last entry points to next DIFAT sector)
                 for _ in 0..(entries_per_sector - 1) {
                     let sector = reader
                         .read_u32::<LittleEndian>()
-                        .map_err(|e| HwpError::IoError(e))?;
+                        .map_err(HwpError::IoError)?;
                     if sector != FREESECT {
                         fat_sectors.push(sector);
                     }
@@ -56,7 +56,7 @@ impl FatTable {
                 // Read next DIFAT sector pointer
                 current_difat = reader
                     .read_u32::<LittleEndian>()
-                    .map_err(|e| HwpError::IoError(e))?;
+                    .map_err(HwpError::IoError)?;
             }
         }
 
@@ -71,13 +71,13 @@ impl FatTable {
             let offset = (fat_sector + 1) * sector_size;
             reader
                 .seek(SeekFrom::Start(offset as u64))
-                .map_err(|e| HwpError::IoError(e))?;
+                .map_err(HwpError::IoError)?;
 
             // Read FAT entries from this sector
             for _ in 0..entries_per_sector {
                 let entry = reader
                     .read_u32::<LittleEndian>()
-                    .map_err(|e| HwpError::IoError(e))?;
+                    .map_err(HwpError::IoError)?;
                 entries.push(entry);
             }
         }
@@ -135,13 +135,13 @@ impl FatTable {
             let offset = (sector + 1) * self.sector_size;
             reader
                 .seek(SeekFrom::Start(offset as u64))
-                .map_err(|e| HwpError::IoError(e))?;
+                .map_err(HwpError::IoError)?;
 
             // Read sector data
             let mut sector_data = vec![0u8; self.sector_size as usize];
             reader
                 .read_exact(&mut sector_data)
-                .map_err(|e| HwpError::IoError(e))?;
+                .map_err(HwpError::IoError)?;
 
             data.extend_from_slice(&sector_data);
         }
@@ -180,12 +180,12 @@ impl MiniFatTable {
                 let offset = (sector + 1) * header.sector_size();
                 reader
                     .seek(SeekFrom::Start(offset as u64))
-                    .map_err(|e| HwpError::IoError(e))?;
+                    .map_err(HwpError::IoError)?;
 
                 for _ in 0..entries_per_sector {
                     let entry = reader
                         .read_u32::<LittleEndian>()
-                        .map_err(|e| HwpError::IoError(e))?;
+                        .map_err(HwpError::IoError)?;
                     entries.push(entry);
                 }
             }
