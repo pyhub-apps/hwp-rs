@@ -66,6 +66,21 @@ pub struct DocInfo {
     
     /// Border fills
     pub border_fills: Vec<BorderFill>,
+    
+    /// Tab definitions
+    pub tab_defs: Vec<TabDef>,
+    
+    /// Numbering definitions
+    pub numberings: Vec<Numbering>,
+    
+    /// Bullet definitions
+    pub bullets: Vec<Bullet>,
+    
+    /// ID mappings for binary data
+    pub id_mappings: Vec<u32>,
+    
+    /// Binary data (embedded images, OLE objects, etc.)
+    pub bin_data: Vec<Vec<u8>>,
 }
 
 /// Document properties
@@ -178,6 +193,52 @@ pub struct BorderFill {
     pub diagonal_border: BorderLine,
     pub fill_type: u8,
     pub fill_data: Vec<u8>,
+}
+
+/// Tab definition
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct TabDef {
+    pub properties: u32,
+    pub count: u16,
+    pub tabs: Vec<TabItem>,
+}
+
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct TabItem {
+    pub position: u32,
+    pub tab_type: u8,
+    pub fill_type: u8,
+    pub reserved: u16,
+}
+
+/// Numbering definition
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct Numbering {
+    pub levels: Vec<NumberingLevel>,
+}
+
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct NumberingLevel {
+    pub paragraph_properties: u32,
+    pub paragraph_style_id: u16,
+    pub number_format: u8,
+    pub start_number: u16,
+    pub format_chars: String,
+}
+
+/// Bullet definition
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct Bullet {
+    pub paragraph_properties: u32,
+    pub paragraph_style_id: u16,
+    pub bullet_char: String,
+    pub use_image: bool,
+    pub image_id: Option<u16>,
 }
 
 #[derive(Debug, Clone)]
