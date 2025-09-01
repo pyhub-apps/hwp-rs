@@ -1,8 +1,8 @@
-use hwp_parser::parser::record::{RecordParser, RecordDataParser};
-use hwp_parser::validator::RecordContext;
-use hwp_parser::parser::doc_info_records::*;
 use hwp_core::constants::tag_id::doc_info;
-use hwp_core::models::record::{Record, RecordHeader};
+use hwp_core::models::record::RecordHeader;
+use hwp_parser::parser::doc_info_records::*;
+use hwp_parser::parser::record::{RecordDataParser, RecordParser};
+use hwp_parser::validator::RecordContext;
 
 #[test]
 fn test_record_header_parsing() {
@@ -12,7 +12,7 @@ fn test_record_header_parsing() {
     let value = (0x0010_u32) | (0_u32 << 10) | (4_u32 << 20);
     let header_bytes = value.to_le_bytes();
     let header = RecordHeader::from_bytes(header_bytes);
-    
+
     assert_eq!(header.tag_id(), 0x0010);
     assert_eq!(header.level(), 0);
     assert_eq!(header.size(), 4);
@@ -28,7 +28,7 @@ fn test_extended_size_record_header() {
     let value = (0x0010_u32) | (0_u32 << 10) | (0xFFF_u32 << 20);
     let header_bytes = value.to_le_bytes();
     let header = RecordHeader::from_bytes(header_bytes);
-    
+
     assert_eq!(header.tag_id(), 0x0010);
     assert_eq!(header.level(), 0);
     assert_eq!(header.size(), 0xFFF);
@@ -40,12 +40,12 @@ fn test_record_parsing() {
     // Create proper headers with correct bit layout
     let doc_props_header = ((0x0010_u32) | (0_u32 << 10) | (36_u32 << 20)).to_le_bytes();
     let face_name_header = ((0x0013_u32) | (0_u32 << 10) | (13_u32 << 20)).to_le_bytes();
-    
+
     let mut data = vec![];
-    
+
     // Record 1: DOCUMENT_PROPERTIES
     data.extend_from_slice(&doc_props_header); // header: tag=0x0010, level=0, size=36
-    // Document properties data (36 bytes)
+                                               // Document properties data (36 bytes)
     data.extend_from_slice(&[
         0x03, 0x00, // section_count: 3
         0x01, 0x00, // page_start_number: 1
@@ -57,11 +57,10 @@ fn test_record_parsing() {
         0x64, 0x00, 0x00, 0x00, // total_character_count: 100
         0x05, 0x00, 0x00, 0x00, // total_page_count: 5
         // Padding to reach 36 bytes (we have 22 bytes of data, need 14 more)
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     ]);
-    
-    // Record 2: FACE_NAME  
+
+    // Record 2: FACE_NAME
     data.extend_from_slice(&face_name_header); // header: tag=0x0013, level=0, size=13
     data.extend_from_slice(&[
         0x00, // properties: 0
@@ -72,18 +71,18 @@ fn test_record_parsing() {
         0x61, 0x00, // 'a'
         0x6C, 0x00, // 'l'
     ]);
-    
+
     let mut parser = RecordParser::new_with_context(&data, RecordContext::DocInfo);
     let records = parser.parse_all_records().unwrap();
-    
+
     assert_eq!(records.len(), 2);
-    
+
     // Check first record (DOCUMENT_PROPERTIES)
     assert_eq!(records[0].tag_id, doc_info::DOCUMENT_PROPERTIES);
     assert_eq!(records[0].level, 0);
     assert_eq!(records[0].size, 36);
     assert_eq!(records[0].data.len(), 36);
-    
+
     // Check second record (FACE_NAME)
     assert_eq!(records[1].tag_id, doc_info::FACE_NAME);
     assert_eq!(records[1].level, 0);
@@ -104,7 +103,7 @@ fn test_document_properties_parsing() {
         0x64, 0x00, 0x00, 0x00, // total_character_count: 100
         0x05, 0x00, 0x00, 0x00, // total_page_count: 5
     ];
-    
+
     let props = parse_document_properties(&data).unwrap();
     assert_eq!(props.section_count, 3);
     assert_eq!(props.page_start_number, 1);
@@ -128,7 +127,7 @@ fn test_face_name_parsing_basic() {
         0x61, 0x00, // 'a'
         0x6C, 0x00, // 'l'
     ];
-    
+
     let face_name = parse_face_name(&data).unwrap();
     assert_eq!(face_name.properties, 0);
     assert_eq!(face_name.name, "Arial");
@@ -159,7 +158,7 @@ fn test_face_name_parsing_with_type_info() {
         0x00, // midline
         0x00, // x_height
     ];
-    
+
     let face_name = parse_face_name(&data).unwrap();
     assert_eq!(face_name.properties, 1);
     assert_eq!(face_name.name, "Arial");
@@ -171,32 +170,32 @@ fn test_face_name_parsing_with_type_info() {
 #[test]
 fn test_char_shape_parsing() {
     let mut data = Vec::new();
-    
+
     // Face name IDs (7 u16 values)
     for i in 0..7 {
         data.extend_from_slice(&(i as u16).to_le_bytes());
     }
-    
+
     // Ratios (7 u8 values)
     for i in 0..7 {
         data.push(100 + i);
     }
-    
+
     // Character spaces (7 i8 values)
     for i in 0..7 {
         data.push(i);
     }
-    
-    // Relative sizes (7 u8 values)  
+
+    // Relative sizes (7 u8 values)
     for i in 0..7 {
         data.push(100 + i);
     }
-    
+
     // Character offsets (7 i8 values)
     for i in 0..7 {
         data.push(i);
     }
-    
+
     // Remaining fields
     data.extend_from_slice(&1200u32.to_le_bytes()); // base_size
     data.extend_from_slice(&0x12345678u32.to_le_bytes()); // properties
@@ -207,19 +206,19 @@ fn test_char_shape_parsing() {
     data.extend_from_slice(&0x0000FFu32.to_le_bytes()); // shade_color (blue)
     data.extend_from_slice(&0x888888u32.to_le_bytes()); // shadow_color (gray)
     data.extend_from_slice(&123u16.to_le_bytes()); // border_fill_id
-    
+
     let char_shape = parse_char_shape(&data).unwrap();
-    
+
     // Verify face name IDs
     for i in 0..7 {
         assert_eq!(char_shape.face_name_ids[i], i as u16);
     }
-    
+
     // Verify ratios
     for i in 0..7 {
         assert_eq!(char_shape.ratios[i], 100 + i as u8);
     }
-    
+
     assert_eq!(char_shape.base_size, 1200);
     assert_eq!(char_shape.properties, 0x12345678);
     assert_eq!(char_shape.shadow_gap_x, 1);
@@ -252,7 +251,7 @@ fn test_para_shape_parsing() {
         0xEF, 0xCD, 0xAB, 0x89, // properties3: 0x89ABCDEF
         0x01, 0x00, 0x00, 0x00, // line_spacing_type: 1
     ];
-    
+
     let para_shape = parse_para_shape(&data).unwrap();
     assert_eq!(para_shape.properties1, 0x12345678);
     assert_eq!(para_shape.left_margin, 4096);
@@ -276,7 +275,7 @@ fn test_para_shape_parsing() {
 #[test]
 fn test_style_parsing() {
     let data = vec![
-        // Korean name: "바탕"  
+        // Korean name: "바탕"
         0x02, 0x00, // name length: 2
         0x14, 0xBC, // '바' (correct UTF-16LE)
         0xD5, 0xD0, // '탕' (correct UTF-16LE)
@@ -288,13 +287,13 @@ fn test_style_parsing() {
         0x6D, 0x00, // 'm'
         0x61, 0x00, // 'a'
         0x6C, 0x00, // 'l'
-        0x01,       // properties: 1
-        0xFF,       // next_style_id: 255
+        0x01, // properties: 1
+        0xFF, // next_style_id: 255
         0x12, 0x04, // lang_id: 0x0412 (Korean)
         0x05, 0x00, // para_shape_id: 5
         0x03, 0x00, // char_shape_id: 3
     ];
-    
+
     let style = parse_style(&data).unwrap();
     assert_eq!(style.name, "바탕");
     assert_eq!(style.english_name, "Normal");
@@ -333,7 +332,7 @@ fn test_border_fill_parsing() {
         // Additional fill data (optional)
         0x01, 0x02, 0x03, 0x04,
     ];
-    
+
     let border_fill = parse_border_fill(&data).unwrap();
     assert_eq!(border_fill.properties, 1);
     assert_eq!(border_fill.left_border.line_type, 1);
@@ -354,7 +353,7 @@ fn test_id_mappings_parsing() {
         0x20, 0x00, 0x00, 0x00, // mapping 2: 32
         0x30, 0x00, 0x00, 0x00, // mapping 3: 48
     ];
-    
+
     let mappings = parse_id_mappings(&data).unwrap();
     assert_eq!(mappings.len(), 3);
     assert_eq!(mappings[0], 16);
@@ -370,7 +369,7 @@ fn test_record_data_parser_hwp_string() {
         0x57, 0x00, // 'W'
         0x50, 0x00, // 'P'
     ];
-    
+
     let mut parser = RecordDataParser::new(&data);
     let string = parser.read_hwp_string().unwrap();
     assert_eq!(string, "HWP");
@@ -383,7 +382,7 @@ fn test_record_data_parser_varint() {
         0x80, 0x02, // 256 (0x80 + 0x02 << 7)
         0xFF, 0xFF, 0xFF, 0xFF, 0x0F, // 0xFFFFFFFF
     ];
-    
+
     let mut parser = RecordDataParser::new(&data);
     assert_eq!(parser.read_varint().unwrap(), 150);
     assert_eq!(parser.read_varint().unwrap(), 256);
@@ -397,7 +396,7 @@ fn test_malformed_record_handling() {
     let mut parser = RecordParser::new_with_context(&data, RecordContext::DocInfo);
     let result = parser.parse_next_record().unwrap();
     assert!(result.is_none()); // Should return None for incomplete data
-    
+
     // Test record with size larger than available data
     let data = vec![
         0x10, 0x00, 0x64, 0x00, // header: tag=0x0010, level=0, size=100

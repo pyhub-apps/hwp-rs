@@ -2,32 +2,32 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
 pub enum CtrlId {
-    Table = 0x00746c62,           // 'tbl\0' in little-endian
-    GenShapeObject = 0x6F736467,  // 'gso\0' in little-endian  
-    Line = 0x006C696E,             // 'lin\0' in little-endian
-    Rectangle = 0x00636572,        // 'rec\0' in little-endian
-    Ellipse = 0x00636565,          // 'ell\0' in little-endian
-    Arc = 0x00636561,              // 'arc\0' in little-endian
-    Polygon = 0x006C6F70,          // 'pol\0' in little-endian
-    Curve = 0x00727563,            // 'cur\0' in little-endian
-    Equation = 0x00716571,         // 'eqe\0' in little-endian
-    Picture = 0x00636970,          // 'pic\0' in little-endian
-    Ole = 0x00656C6F,              // 'ole\0' in little-endian
-    Container = 0x006E6F63,        // 'con\0' in little-endian
-    Header = 0x00646568,           // 'hed\0' in little-endian
-    Footer = 0x00746F66,           // 'fot\0' in little-endian
-    PageNumPos = 0x00706E70,       // 'pnp\0' in little-endian
-    NewNum = 0x006E776E,           // 'nwn\0' in little-endian
-    Footnote = 0x00746E66,         // 'fnt\0' in little-endian
-    Endnote = 0x00746E65,          // 'ent\0' in little-endian
-    AutoNum = 0x006D756E,          // 'num\0' in little-endian
-    PageHiding = 0x00646870,       // 'phd\0' in little-endian
+    Table = 0x00746c62,             // 'tbl\0' in little-endian
+    GenShapeObject = 0x6F736467,    // 'gso\0' in little-endian
+    Line = 0x006C696E,              // 'lin\0' in little-endian
+    Rectangle = 0x00636572,         // 'rec\0' in little-endian
+    Ellipse = 0x00636565,           // 'ell\0' in little-endian
+    Arc = 0x00636561,               // 'arc\0' in little-endian
+    Polygon = 0x006C6F70,           // 'pol\0' in little-endian
+    Curve = 0x00727563,             // 'cur\0' in little-endian
+    Equation = 0x00716571,          // 'eqe\0' in little-endian
+    Picture = 0x00636970,           // 'pic\0' in little-endian
+    Ole = 0x00656C6F,               // 'ole\0' in little-endian
+    Container = 0x006E6F63,         // 'con\0' in little-endian
+    Header = 0x00646568,            // 'hed\0' in little-endian
+    Footer = 0x00746F66,            // 'fot\0' in little-endian
+    PageNumPos = 0x00706E70,        // 'pnp\0' in little-endian
+    NewNum = 0x006E776E,            // 'nwn\0' in little-endian
+    Footnote = 0x00746E66,          // 'fnt\0' in little-endian
+    Endnote = 0x00746E65,           // 'ent\0' in little-endian
+    AutoNum = 0x006D756E,           // 'num\0' in little-endian
+    PageHiding = 0x00646870,        // 'phd\0' in little-endian
     PageOddEvenAdjust = 0x61656F70, // 'poea' in little-endian
-    PageBreak = 0x006B6270,        // 'pbk\0' in little-endian
-    Field = 0x006C6466,            // 'fld\0' in little-endian
-    Bookmark = 0x006B6D62,         // 'bmk\0' in little-endian
-    DutmalTitle = 0x74747564,      // 'dutt' in little-endian
-    IndexMark = 0x006B6469,        // 'idx\0' in little-endian
+    PageBreak = 0x006B6270,         // 'pbk\0' in little-endian
+    Field = 0x006C6466,             // 'fld\0' in little-endian
+    Bookmark = 0x006B6D62,          // 'bmk\0' in little-endian
+    DutmalTitle = 0x74747564,       // 'dutt' in little-endian
+    IndexMark = 0x006B6469,         // 'idx\0' in little-endian
 }
 
 impl CtrlId {

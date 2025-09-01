@@ -1,8 +1,8 @@
-use super::{OutputFormatter, FormatOptions};
+use super::{FormatOptions, OutputFormatter};
 use crate::text_extractor::TextExtractor;
-use hwp_core::{HwpDocument, Result};
-use hwp_core::models::{Section, Paragraph};
 use hwp_core::models::document::DocInfo;
+use hwp_core::models::{Paragraph, Section};
+use hwp_core::{HwpDocument, Result};
 
 /// Plain text formatter - simple text extraction
 pub struct PlainTextFormatter {
@@ -13,7 +13,7 @@ impl PlainTextFormatter {
     pub fn new(options: FormatOptions) -> Self {
         Self { options }
     }
-    
+
     fn wrap_text(&self, text: &str) -> String {
         if let Some(width) = self.options.text_width {
             // Simple word wrapping
@@ -53,10 +53,10 @@ impl OutputFormatter for PlainTextFormatter {
     fn format_document(&self, doc: &HwpDocument) -> Result<String> {
         // Use existing TextExtractor for plain text
         let text = TextExtractor::extract_from_document(doc)?;
-        
+
         // Apply text wrapping if configured
         let formatted = self.wrap_text(&text);
-        
+
         // Add page breaks if configured
         if self.options.text_page_breaks {
             // TODO: Detect and preserve page breaks from the document
@@ -66,25 +66,25 @@ impl OutputFormatter for PlainTextFormatter {
             Ok(formatted)
         }
     }
-    
+
     fn format_metadata(&self, _doc_info: &DocInfo) -> Result<String> {
         // Plain text doesn't include metadata
         Ok(String::new())
     }
-    
+
     fn format_section(&self, section: &Section, _index: usize) -> Result<String> {
         let mut text = String::new();
-        
+
         for paragraph in &section.paragraphs {
             if !paragraph.text.is_empty() {
                 text.push_str(&self.wrap_text(&paragraph.text));
                 text.push('\n');
             }
         }
-        
+
         Ok(text)
     }
-    
+
     fn format_paragraph(&self, paragraph: &Paragraph, _index: usize) -> Result<String> {
         Ok(self.wrap_text(&paragraph.text))
     }

@@ -1,5 +1,4 @@
 use wasm_bindgen::prelude::*;
-use hwp_parser;
 
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global allocator.
 #[cfg(feature = "wee_alloc")]
@@ -18,10 +17,10 @@ impl HwpParser {
         // Set panic hook for better error messages in browser console
         #[cfg(feature = "console_error_panic_hook")]
         console_error_panic_hook::set_once();
-        
+
         HwpParser { document: None }
     }
-    
+
     /// Parse HWP file from bytes
     #[wasm_bindgen]
     pub fn parse(&mut self, data: &[u8]) -> Result<(), JsValue> {
@@ -30,32 +29,26 @@ impl HwpParser {
                 self.document = Some(doc);
                 Ok(())
             }
-            Err(e) => {
-                Err(JsValue::from_str(&format!("Parse error: {}", e)))
-            }
+            Err(e) => Err(JsValue::from_str(&format!("Parse error: {}", e))),
         }
     }
-    
+
     /// Get document as JSON
     #[wasm_bindgen]
     pub fn to_json(&self) -> Result<String, JsValue> {
         match &self.document {
-            Some(doc) => {
-                serde_json::to_string(doc)
-                    .map_err(|e| JsValue::from_str(&format!("JSON error: {}", e)))
-            }
-            None => {
-                Err(JsValue::from_str("No document parsed yet"))
-            }
+            Some(doc) => serde_json::to_string(doc)
+                .map_err(|e| JsValue::from_str(&format!("JSON error: {}", e))),
+            None => Err(JsValue::from_str("No document parsed yet")),
         }
     }
-    
+
     /// Get document text content
     #[wasm_bindgen]
     pub fn get_text(&self) -> Result<String, JsValue> {
         match &self.document {
             Some(doc) => Ok(doc.get_text()),
-            None => Err(JsValue::from_str("No document parsed yet"))
+            None => Err(JsValue::from_str("No document parsed yet")),
         }
     }
 }

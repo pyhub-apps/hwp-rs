@@ -11,7 +11,7 @@ fn create_header(tag_id: u16, level: u8, size: usize) -> Vec<u8> {
 #[test]
 fn debug_docinfo_parsing() {
     let mut data = Vec::new();
-    
+
     // Simple document properties record
     data.extend(create_header(0x0010, 0, 36));
     // Add exactly 36 bytes of data
@@ -25,9 +25,9 @@ fn debug_docinfo_parsing() {
     data.extend_from_slice(&[0x64, 0x00, 0x00, 0x00]); // total_character_count: 100
     data.extend_from_slice(&[0x05, 0x00, 0x00, 0x00]); // total_page_count: 5
     data.extend_from_slice(&[0x00; 14]); // padding to reach 36 bytes
-    
+
     println!("Test data size: {} bytes", data.len());
-    
+
     // First, let's test that our record parser can handle this
     let mut record_parser = RecordParser::new(&data);
     match record_parser.parse_next_record() {
@@ -45,7 +45,7 @@ fn debug_docinfo_parsing() {
             println!("Record parsing failed: {:?}", e);
         }
     }
-    
+
     // Now let's test DocInfo parsing
     match parse_doc_info(&data) {
         Ok(doc_info) => {
@@ -58,38 +58,38 @@ fn debug_docinfo_parsing() {
     }
 }
 
-#[test] 
+#[test]
 fn debug_char_shape_parsing() {
     let mut data = Vec::new();
-    
+
     // Create a minimal character shape record
     let mut char_data = Vec::new();
-    
+
     // Face name IDs (7 u16 values)
     for i in 0..7 {
         char_data.extend(&(i as u16).to_le_bytes());
     }
-    
+
     // Ratios (7 u8 values)
     for _ in 0..7 {
         char_data.push(100);
     }
-    
+
     // Character spaces (7 i8 values)
     for _ in 0..7 {
         char_data.push(0);
     }
-    
-    // Relative sizes (7 u8 values)  
+
+    // Relative sizes (7 u8 values)
     for _ in 0..7 {
         char_data.push(100);
     }
-    
+
     // Character offsets (7 i8 values)
     for _ in 0..7 {
         char_data.push(0);
     }
-    
+
     // Remaining fields
     char_data.extend(&1200u32.to_le_bytes()); // base_size
     char_data.extend(&0u32.to_le_bytes()); // properties
@@ -99,15 +99,15 @@ fn debug_char_shape_parsing() {
     char_data.extend(&0x000000u32.to_le_bytes()); // underline_color
     char_data.extend(&0xFFFFFFu32.to_le_bytes()); // shade_color
     char_data.extend(&0x808080u32.to_le_bytes()); // shadow_color
-    
+
     println!("Character shape data size: {} bytes", char_data.len());
-    
+
     // Create the record
     data.extend(create_header(0x0015, 0, char_data.len()));
     data.extend_from_slice(&char_data);
-    
+
     println!("Total char shape record size: {} bytes", data.len());
-    
+
     // Parse it
     match parse_doc_info(&data) {
         Ok(doc_info) => {

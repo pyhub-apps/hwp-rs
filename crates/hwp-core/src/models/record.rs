@@ -3,13 +3,13 @@
 pub struct Record {
     /// Tag ID identifying the record type
     pub tag_id: u16,
-    
+
     /// Hierarchy level (0-3)
     pub level: u8,
-    
+
     /// Size of the record data
     pub size: u32,
-    
+
     /// Record data
     pub data: Vec<u8>,
 }
@@ -24,12 +24,12 @@ impl Record {
             data,
         }
     }
-    
+
     /// Get the total size including header
     pub fn total_size(&self) -> usize {
         4 + self.size as usize // 4 bytes for header + data size
     }
-    
+
     /// Check if this is a DocInfo record
     pub fn is_doc_info(&self) -> bool {
         use crate::constants::tag_id::doc_info::*;
@@ -57,7 +57,7 @@ impl Record {
                 | CHANGE_TRACKING
         )
     }
-    
+
     /// Check if this is a Section record
     pub fn is_section(&self) -> bool {
         use crate::constants::tag_id::section::*;
@@ -109,24 +109,24 @@ impl RecordHeader {
         let value = u32::from_le_bytes(bytes);
         Self { value }
     }
-    
+
     /// Get the tag ID (bits 0-9, 10 bits)
     pub fn tag_id(&self) -> u16 {
         (self.value & 0x3FF) as u16
     }
-    
+
     /// Get the level (bits 10-19, 10 bits)
     pub fn level(&self) -> u8 {
         ((self.value >> 10) & 0x3FF) as u8
     }
-    
+
     /// Get the size (bits 20-31, 12 bits)
     pub fn size(&self) -> u32 {
         (self.value >> 20) & 0xFFF
     }
-    
+
     /// Check if this record has extended size
     pub fn has_extended_size(&self) -> bool {
-        self.size() == 0xFFF  // 12 bits all set to 1
+        self.size() == 0xFFF // 12 bits all set to 1
     }
 }

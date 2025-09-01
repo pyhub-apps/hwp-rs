@@ -1,8 +1,8 @@
-use super::{OutputFormatter, FormatOptions};
-use hwp_core::{HwpDocument, Result};
-use hwp_core::models::{Section, Paragraph};
+use super::{FormatOptions, OutputFormatter};
 use hwp_core::models::document::DocInfo;
-use serde::{Serialize, Deserialize};
+use hwp_core::models::{Paragraph, Section};
+use hwp_core::{HwpDocument, Result};
+use serde::{Deserialize, Serialize};
 use serde_json;
 
 /// JSON formatter - structured document representation
@@ -106,8 +106,8 @@ impl OutputFormatter for JsonFormatter {
         // Build JSON document structure
         let mut json_doc = JsonDocument {
             metadata: JsonMetadata {
-                title: None, // TODO: Extract from DocInfo when available
-                author: None, // TODO: Extract from DocInfo when available
+                title: None,   // TODO: Extract from DocInfo when available
+                author: None,  // TODO: Extract from DocInfo when available
                 created: None, // TODO: Extract from DocInfo when available
                 version: format!("{}", doc.header.version),
                 page_count: doc.page_count(),
@@ -117,33 +117,33 @@ impl OutputFormatter for JsonFormatter {
                 sections: Vec::new(),
             },
         };
-        
+
         // Add styles if requested
         if self.options.json_include_styles {
             json_doc.styles = Some(self.extract_styles(&doc.doc_info));
         }
-        
+
         // Convert sections
         for (index, section) in doc.sections.iter().enumerate() {
             let mut json_section = JsonSection {
                 index,
                 paragraphs: Vec::new(),
             };
-            
+
             for (para_index, paragraph) in section.paragraphs.iter().enumerate() {
                 if !paragraph.text.is_empty() {
                     json_section.paragraphs.push(JsonParagraph {
                         index: para_index,
                         text: paragraph.text.clone(),
-                        style: None, // TODO: Map paragraph style ID to name
+                        style: None,      // TODO: Map paragraph style ID to name
                         formatting: None, // TODO: Extract formatting from paragraph
                     });
                 }
             }
-            
+
             json_doc.content.sections.push(json_section);
         }
-        
+
         // Serialize to JSON string
         if self.options.json_pretty {
             serde_json::to_string_pretty(&json_doc)
@@ -153,8 +153,8 @@ impl OutputFormatter for JsonFormatter {
                 .map_err(|e| hwp_core::HwpError::EncodingError(e.to_string()))
         }
     }
-    
-    fn format_metadata(&self, doc_info: &DocInfo) -> Result<String> {
+
+    fn format_metadata(&self, _doc_info: &DocInfo) -> Result<String> {
         let metadata = JsonMetadata {
             title: None, // TODO: Extract when DocInfo is more complete
             author: None,
@@ -162,7 +162,7 @@ impl OutputFormatter for JsonFormatter {
             version: String::new(),
             page_count: 0,
         };
-        
+
         if self.options.json_pretty {
             serde_json::to_string_pretty(&metadata)
                 .map_err(|e| hwp_core::HwpError::EncodingError(e.to_string()))
@@ -171,13 +171,13 @@ impl OutputFormatter for JsonFormatter {
                 .map_err(|e| hwp_core::HwpError::EncodingError(e.to_string()))
         }
     }
-    
+
     fn format_section(&self, section: &Section, index: usize) -> Result<String> {
         let mut json_section = JsonSection {
             index,
             paragraphs: Vec::new(),
         };
-        
+
         for (para_index, paragraph) in section.paragraphs.iter().enumerate() {
             if !paragraph.text.is_empty() {
                 json_section.paragraphs.push(JsonParagraph {
@@ -188,7 +188,7 @@ impl OutputFormatter for JsonFormatter {
                 });
             }
         }
-        
+
         if self.options.json_pretty {
             serde_json::to_string_pretty(&json_section)
                 .map_err(|e| hwp_core::HwpError::EncodingError(e.to_string()))
@@ -197,7 +197,7 @@ impl OutputFormatter for JsonFormatter {
                 .map_err(|e| hwp_core::HwpError::EncodingError(e.to_string()))
         }
     }
-    
+
     fn format_paragraph(&self, paragraph: &Paragraph, index: usize) -> Result<String> {
         let json_para = JsonParagraph {
             index,
@@ -205,7 +205,7 @@ impl OutputFormatter for JsonFormatter {
             style: None,
             formatting: None,
         };
-        
+
         if self.options.json_pretty {
             serde_json::to_string_pretty(&json_para)
                 .map_err(|e| hwp_core::HwpError::EncodingError(e.to_string()))
@@ -223,7 +223,7 @@ impl JsonFormatter {
             paragraph_styles: Vec::new(),
             character_styles: Vec::new(),
         };
-        
+
         // Extract font information
         for (id, face_name) in doc_info.face_names.iter().enumerate() {
             styles.fonts.push(JsonFont {
@@ -232,26 +232,34 @@ impl JsonFormatter {
                 english_name: None, // TODO: Add when english_name is available in FaceName
             });
         }
-        
+
         // Extract character styles
         for (id, char_shape) in doc_info.char_shapes.iter().enumerate() {
             styles.character_styles.push(JsonCharacterStyle {
                 id: id as u16,
                 name: format!("CharStyle{}", id),
                 font_size: Some(char_shape.base_size as f32 / 100.0), // Convert from HWPUNIT
-                bold: if char_shape.properties & 0x01 != 0 { Some(true) } else { None },
-                italic: if char_shape.properties & 0x02 != 0 { Some(true) } else { None },
+                bold: if char_shape.properties & 0x01 != 0 {
+                    Some(true)
+                } else {
+                    None
+                },
+                italic: if char_shape.properties & 0x02 != 0 {
+                    Some(true)
+                } else {
+                    None
+                },
             });
         }
-        
+
         // Extract paragraph styles
-        for (id, para_shape) in doc_info.para_shapes.iter().enumerate() {
+        for (id, _para_shape) in doc_info.para_shapes.iter().enumerate() {
             styles.paragraph_styles.push(JsonParagraphStyle {
                 id: id as u16,
                 name: format!("ParaStyle{}", id),
             });
         }
-        
+
         styles
     }
 }

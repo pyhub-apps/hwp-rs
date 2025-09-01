@@ -1,13 +1,13 @@
-pub mod header;
 pub mod doc_info;
-pub mod section;
-pub mod record;
 pub mod doc_info_records;
+pub mod header;
+pub mod record;
+pub mod section;
 
-use hwp_core::{HwpDocument, Result, HwpError};
-use crate::reader::ByteReader;
 use crate::cfb::parse_cfb_bytes;
 use crate::cfb::stream::Stream;
+use crate::reader::ByteReader;
+use hwp_core::{HwpDocument, HwpError, Result};
 use std::io::Cursor;
 
 /// Try to decompress a stream using various methods
@@ -40,20 +40,23 @@ fn try_decompress_stream(stream: &Stream) -> Result<Vec<u8>> {
         }
     }
 
-    Err(HwpError::DecompressionError("Failed to decompress stream".to_string()))
+    Err(HwpError::DecompressionError(
+        "Failed to decompress stream".to_string(),
+    ))
 }
 
 /// Decompress data using zlib
 fn decompress_zlib(data: &[u8]) -> Result<Vec<u8>> {
     use flate2::read::ZlibDecoder;
     use std::io::Read;
-    
+
     let mut decoder = ZlibDecoder::new(data);
     let mut decompressed = Vec::new();
-    
-    decoder.read_to_end(&mut decompressed)
+
+    decoder
+        .read_to_end(&mut decompressed)
         .map_err(|e| HwpError::DecompressionError(e.to_string()))?;
-    
+
     Ok(decompressed)
 }
 
@@ -82,7 +85,7 @@ fn parse_cfb_hwp(data: &[u8]) -> Result<HwpDocument> {
     // Parse CFB container
     let mut container = parse_cfb_bytes(data)?;
     let mut cursor = Cursor::new(data);
-    
+
     // Read FileHeader stream
     let file_header_stream = container.read_stream(&mut cursor, "FileHeader")?;
     let header_data = if file_header_stream.is_compressed() {
@@ -90,44 +93,50 @@ fn parse_cfb_hwp(data: &[u8]) -> Result<HwpDocument> {
     } else {
         file_header_stream.as_bytes().to_vec()
     };
-    
+
     // Parse header from the stream
     let mut reader = ByteReader::new(&header_data);
     let header = header::parse_header(&mut reader)?;
-    
+
     // Check if version is supported
     if !header.version.is_supported() {
         return Err(HwpError::UnsupportedVersion {
             version: header.version.to_string(),
         });
     }
-    
+
     // Create document
     let mut document = HwpDocument::new(header);
-    
+
     if container.has_stream("DocInfo") {
         eprintln!("[DEBUG] Reading DocInfo stream...");
         let doc_info_stream = container.read_stream(&mut cursor, "DocInfo")?;
-        eprintln!("[DEBUG] DocInfo stream size: {} bytes", doc_info_stream.size);
-        
+        eprintln!(
+            "[DEBUG] DocInfo stream size: {} bytes",
+            doc_info_stream.size
+        );
+
         // Try to decompress DocInfo stream - HWP v5.x streams are usually compressed
-        let doc_info_data = match try_decompress_stream(&doc_info_stream) {
+        let doc_info_data = match try_decompress_stream(doc_info_stream) {
             Ok(decompressed) => {
-                eprintln!("[DEBUG] DocInfo decompressed successfully: {} bytes", decompressed.len());
+                eprintln!(
+                    "[DEBUG] DocInfo decompressed successfully: {} bytes",
+                    decompressed.len()
+                );
                 decompressed
-            },
+            }
             Err(_) => {
                 eprintln!("[DEBUG] DocInfo not compressed, using raw data");
                 doc_info_stream.as_bytes().to_vec()
             }
         };
-        
+
         // Parse DocInfo records
         eprintln!("[DEBUG] Parsing DocInfo data...");
         document.doc_info = doc_info::parse_doc_info(&doc_info_data)?;
         eprintln!("[DEBUG] DocInfo parsed successfully");
     }
-    
+
     // Parse BodyText sections
     let mut section_idx = 0;
     loop {
@@ -135,53 +144,56 @@ fn parse_cfb_hwp(data: &[u8]) -> Result<HwpDocument> {
         if !container.has_stream(&section_name) {
             break;
         }
-        
+
         eprintln!("[DEBUG] Reading section: {}", section_name);
         let section_stream = container.read_stream(&mut cursor, &section_name)?;
         eprintln!("[DEBUG] Stream size: {} bytes", section_stream.size);
-        
+
         // Try to decompress section stream - HWP v5.x sections are usually compressed
-        let section_data = match try_decompress_stream(&section_stream) {
+        let section_data = match try_decompress_stream(section_stream) {
             Ok(decompressed) => {
-                eprintln!("[DEBUG] Section decompressed successfully: {} bytes", decompressed.len());
+                eprintln!(
+                    "[DEBUG] Section decompressed successfully: {} bytes",
+                    decompressed.len()
+                );
                 decompressed
-            },
+            }
             Err(_) => {
                 eprintln!("[DEBUG] Section not compressed, using raw data");
                 section_stream.as_bytes().to_vec()
             }
         };
-        
+
         // Parse section
         eprintln!("[DEBUG] Parsing section data...");
         let section = section::parse_section(&section_data, section_idx)?;
         document.sections.push(section);
-        
+
         section_idx += 1;
     }
-    
+
     Ok(document)
 }
 
 /// Parse a legacy HWP file (v3.x or older)
 fn parse_legacy_hwp(data: &[u8]) -> Result<HwpDocument> {
     let mut reader = ByteReader::new(data);
-    
+
     // Parse header
     let header = header::parse_header(&mut reader)?;
-    
+
     // Check if version is supported
     if !header.version.is_supported() {
         return Err(HwpError::UnsupportedVersion {
             version: header.version.to_string(),
         });
     }
-    
+
     // Create document
     let document = HwpDocument::new(header);
-    
+
     // TODO: Parse DocInfo section
     // TODO: Parse body sections
-    
+
     Ok(document)
 }
