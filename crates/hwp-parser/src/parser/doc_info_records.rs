@@ -2,7 +2,9 @@ use crate::parser::record::RecordDataParser;
 use crate::reader::ByteReader;
 use hwp_core::models::document::{
     DocumentProperties, CharShape, ParaShape, Style, FaceName, FaceNameType, BorderFill, BorderLine,
-    BinDataEntry, TabDef, TabInfo, Numbering, NumberingLevel, Bullet
+    BinDataEntry, TabDef, TabInfo, Numbering, NumberingLevel, Bullet,
+    DistributeDocData, CompatibleDocument, LayoutCompatibility, TrackChange, TrackChangeAuthor,
+    MemoShape, ForbiddenChar
 };
 use hwp_core::Result;
 
@@ -399,6 +401,125 @@ pub fn parse_bullet(data: &[u8]) -> Result<Bullet> {
     })
 }
 
+/// Parse DISTRIBUTE_DOC_DATA record (tag 0x001C)
+pub fn parse_distribute_doc_data(data: &[u8]) -> Result<DistributeDocData> {
+    Ok(DistributeDocData {
+        data: data.to_vec(),
+    })
+}
+
+/// Parse COMPATIBLE_DOCUMENT record (tag 0x0020)
+pub fn parse_compatible_document(data: &[u8]) -> Result<CompatibleDocument> {
+    let mut parser = RecordDataParser::new(data);
+    let reader = parser.reader();
+    
+    let target_program = reader.read_u32()?;
+    
+    Ok(CompatibleDocument {
+        target_program,
+    })
+}
+
+/// Parse LAYOUT_COMPATIBILITY record (tag 0x0021)
+pub fn parse_layout_compatibility(data: &[u8]) -> Result<LayoutCompatibility> {
+    let mut parser = RecordDataParser::new(data);
+    let reader = parser.reader();
+    
+    let letter_spacing = reader.read_u32()?;
+    let paragraph_spacing = reader.read_u32()?;
+    let line_grid = reader.read_u32()?;
+    let paragraph_grid = reader.read_u32()?;
+    let snap_to_grid = reader.read_u32()?;
+    
+    Ok(LayoutCompatibility {
+        letter_spacing,
+        paragraph_spacing,
+        line_grid,
+        paragraph_grid,
+        snap_to_grid,
+    })
+}
+
+/// Parse TRACK_CHANGE record (tag 0x0022)
+pub fn parse_track_change(data: &[u8]) -> Result<TrackChange> {
+    let mut parser = RecordDataParser::new(data);
+    
+    let properties = parser.reader().read_u32()?;
+    let author_id = parser.reader().read_u16()?;
+    let timestamp = parser.reader().read_u64()?;
+    let change_type = parser.reader().read_u16()?;
+    
+    // Read the remaining data
+    let data_size = parser.remaining();
+    let change_data = if data_size > 0 {
+        parser.reader().read_bytes(data_size)?
+    } else {
+        Vec::new()
+    };
+    
+    Ok(TrackChange {
+        properties,
+        author_id,
+        timestamp,
+        change_type,
+        data: change_data,
+    })
+}
+
+/// Parse TRACK_CHANGE_AUTHOR record (tag 0x0050)
+pub fn parse_track_change_author(data: &[u8]) -> Result<TrackChangeAuthor> {
+    let mut parser = RecordDataParser::new(data);
+    
+    let id = parser.reader().read_u16()?;
+    let name = parser.read_hwp_string()?;
+    
+    Ok(TrackChangeAuthor {
+        id,
+        name,
+    })
+}
+
+/// Parse MEMO_SHAPE record (tag 0x004C)
+pub fn parse_memo_shape(data: &[u8]) -> Result<MemoShape> {
+    let mut parser = RecordDataParser::new(data);
+    let reader = parser.reader();
+    
+    let properties = reader.read_u32()?;
+    let memo_id = reader.read_u32()?;
+    let width = reader.read_i32()?;
+    let line_count = reader.read_u16()?;
+    let line_spacing = reader.read_i16()?;
+    let line_type = reader.read_u8()?;
+    let line_color = reader.read_u32()?;
+    
+    Ok(MemoShape {
+        properties,
+        memo_id,
+        width,
+        line_count,
+        line_spacing,
+        line_type,
+        line_color,
+    })
+}
+
+/// Parse FORBIDDEN_CHAR record (tag 0x004E)
+pub fn parse_forbidden_char(data: &[u8]) -> Result<ForbiddenChar> {
+    let mut parser = RecordDataParser::new(data);
+    
+    let forbidden_chars = parser.read_hwp_string()?;
+    let allowed_chars = if parser.has_more_data() {
+        parser.read_hwp_string()?
+    } else {
+        String::new()
+    };
+    
+    Ok(ForbiddenChar {
+        forbidden_chars,
+        allowed_chars,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -584,5 +705,116 @@ mod tests {
         assert!(bullet.bullet_char.is_none());
         assert!(bullet.image_id.is_some());
         assert_eq!(bullet.image_id.unwrap(), 5);
+    }
+    
+    #[test]
+    fn test_parse_distribute_doc_data() {
+        let data = vec![0x01, 0x02, 0x03, 0x04, 0x05];
+        
+        let distribute = parse_distribute_doc_data(&data).unwrap();
+        assert_eq!(distribute.data, vec![0x01, 0x02, 0x03, 0x04, 0x05]);
+    }
+    
+    #[test]
+    fn test_parse_compatible_document() {
+        let data = vec![
+            0x03, 0x00, 0x00, 0x00, // target_program: 3 (MS Word compatible)
+        ];
+        
+        let compatible = parse_compatible_document(&data).unwrap();
+        assert_eq!(compatible.target_program, 3);
+    }
+    
+    #[test]
+    fn test_parse_layout_compatibility() {
+        let data = vec![
+            0x01, 0x00, 0x00, 0x00, // letter_spacing: 1
+            0x02, 0x00, 0x00, 0x00, // paragraph_spacing: 2
+            0x03, 0x00, 0x00, 0x00, // line_grid: 3
+            0x04, 0x00, 0x00, 0x00, // paragraph_grid: 4
+            0x01, 0x00, 0x00, 0x00, // snap_to_grid: 1
+        ];
+        
+        let layout = parse_layout_compatibility(&data).unwrap();
+        assert_eq!(layout.letter_spacing, 1);
+        assert_eq!(layout.paragraph_spacing, 2);
+        assert_eq!(layout.line_grid, 3);
+        assert_eq!(layout.paragraph_grid, 4);
+        assert_eq!(layout.snap_to_grid, 1);
+    }
+    
+    #[test]
+    fn test_parse_track_change() {
+        let data = vec![
+            0x01, 0x00, 0x00, 0x00, // properties: 1
+            0x02, 0x00, // author_id: 2
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, // timestamp: 0x0100000000000000
+            0x01, 0x00, // change_type: 1 (insert)
+            0xAA, 0xBB, 0xCC, // change data
+        ];
+        
+        let track_change = parse_track_change(&data).unwrap();
+        assert_eq!(track_change.properties, 1);
+        assert_eq!(track_change.author_id, 2);
+        assert_eq!(track_change.timestamp, 0x0100000000000000);
+        assert_eq!(track_change.change_type, 1);
+        assert_eq!(track_change.data, vec![0xAA, 0xBB, 0xCC]);
+    }
+    
+    #[test]
+    fn test_parse_track_change_author() {
+        let data = vec![
+            0x01, 0x00, // id: 1
+            0x04, 0x00, // string length: 4
+            0x4A, 0x00, // 'J'
+            0x6F, 0x00, // 'o'
+            0x68, 0x00, // 'h'
+            0x6E, 0x00, // 'n'
+        ];
+        
+        let author = parse_track_change_author(&data).unwrap();
+        assert_eq!(author.id, 1);
+        assert_eq!(author.name, "John");
+    }
+    
+    #[test]
+    fn test_parse_memo_shape() {
+        let data = vec![
+            0x01, 0x00, 0x00, 0x00, // properties: 1
+            0x10, 0x00, 0x00, 0x00, // memo_id: 16
+            0x00, 0x05, 0x00, 0x00, // width: 1280
+            0x05, 0x00, // line_count: 5
+            0x10, 0x00, // line_spacing: 16
+            0x01, // line_type: 1 (solid)
+            0xFF, 0x00, 0x00, 0x00, // line_color: 0x000000FF (red)
+        ];
+        
+        let memo = parse_memo_shape(&data).unwrap();
+        assert_eq!(memo.properties, 1);
+        assert_eq!(memo.memo_id, 16);
+        assert_eq!(memo.width, 0x0500);
+        assert_eq!(memo.line_count, 5);
+        assert_eq!(memo.line_spacing, 16);
+        assert_eq!(memo.line_type, 1);
+        assert_eq!(memo.line_color, 0xFF);
+    }
+    
+    #[test]
+    fn test_parse_forbidden_char() {
+        let data = vec![
+            // Forbidden chars string
+            0x03, 0x00, // string length: 3
+            0x2C, 0x00, // ','
+            0x2E, 0x00, // '.'
+            0x3B, 0x00, // ';'
+            // Allowed chars string
+            0x02, 0x00, // string length: 2
+            0x21, 0x00, // '!'
+            0x3F, 0x00, // '?'
+        ];
+        
+        let forbidden = parse_forbidden_char(&data).unwrap();
+        assert_eq!(forbidden.forbidden_chars, ",.;");
+        assert_eq!(forbidden.allowed_chars, "!?");
     }
 }
