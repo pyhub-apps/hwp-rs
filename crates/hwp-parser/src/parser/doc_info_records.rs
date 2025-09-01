@@ -1,7 +1,8 @@
 use crate::parser::record::RecordDataParser;
 use crate::reader::ByteReader;
 use hwp_core::models::document::{
-    DocumentProperties, CharShape, ParaShape, Style, FaceName, FaceNameType, BorderFill, BorderLine
+    DocumentProperties, CharShape, ParaShape, Style, FaceName, FaceNameType, BorderFill, BorderLine,
+    BinDataEntry, TabDef, TabInfo, Numbering, NumberingLevel, Bullet
 };
 use hwp_core::Result;
 
@@ -273,15 +274,129 @@ pub fn parse_id_mappings(data: &[u8]) -> Result<Vec<u32>> {
 }
 
 /// Parse BIN_DATA record (tag 0x0012)
-pub fn parse_bin_data(data: &[u8]) -> Result<Vec<u8>> {
-    // BIN_DATA is just raw binary data
-    Ok(data.to_vec())
+pub fn parse_bin_data(data: &[u8]) -> Result<BinDataEntry> {
+    let mut parser = RecordDataParser::new(data);
+    
+    // Read BIN_DATA properties
+    let properties = parser.reader().read_u16()?;
+    
+    // Extract ID from properties (lower 16 bits)
+    let id = properties & 0xFFFF;
+    
+    // Link type and compression type
+    let link_type = parser.reader().read_u8()?;
+    let compression_type = parser.reader().read_u8()?;
+    
+    // Read the actual binary data
+    let data_size = parser.remaining();
+    let data = parser.reader().read_bytes(data_size)?;
+    
+    Ok(BinDataEntry {
+        id,
+        link_type,
+        compression_type,
+        data,
+    })
 }
 
 /// Parse DOC_DATA record (tag 0x001B)
 pub fn parse_doc_data(data: &[u8]) -> Result<Vec<u8>> {
     // DOC_DATA is application-specific data
     Ok(data.to_vec())
+}
+
+/// Parse TAB_DEF record (tag 0x0016)
+pub fn parse_tab_def(data: &[u8]) -> Result<TabDef> {
+    let mut parser = RecordDataParser::new(data);
+    let reader = parser.reader();
+    
+    let properties = reader.read_u32()?;
+    let count = reader.read_u32()?;
+    
+    let mut tabs = Vec::with_capacity(count as usize);
+    for _ in 0..count {
+        let position = reader.read_i32()?;
+        let tab_type = reader.read_u8()?;
+        let fill_type = reader.read_u8()?;
+        // Skip 2 bytes of reserved data
+        reader.read_u16()?;
+        
+        tabs.push(TabInfo {
+            position,
+            tab_type,
+            fill_type,
+        });
+    }
+    
+    Ok(TabDef {
+        properties,
+        count,
+        tabs,
+    })
+}
+
+/// Parse NUMBERING record (tag 0x0017)
+pub fn parse_numbering(data: &[u8]) -> Result<Numbering> {
+    let mut parser = RecordDataParser::new(data);
+    
+    let mut levels = Vec::new();
+    
+    // HWP supports up to 7 levels of numbering
+    for _ in 0..7 {
+        if !parser.has_more_data() {
+            break;
+        }
+        
+        let properties = parser.reader().read_u32()?;
+        let paragraph_shape_id = parser.reader().read_u16()?;
+        
+        // Read the numbering format string
+        let format = parser.read_hwp_string()?;
+        
+        let start_number = if parser.has_more_data() {
+            parser.reader().read_u16()?
+        } else {
+            1
+        };
+        
+        levels.push(NumberingLevel {
+            properties,
+            paragraph_shape_id,
+            format,
+            start_number,
+        });
+    }
+    
+    Ok(Numbering { levels })
+}
+
+/// Parse BULLET record (tag 0x0018)
+pub fn parse_bullet(data: &[u8]) -> Result<Bullet> {
+    let mut parser = RecordDataParser::new(data);
+    let reader = parser.reader();
+    
+    let properties = reader.read_u32()?;
+    let paragraph_shape_id = reader.read_u16()?;
+    
+    // Check if using character or image
+    let uses_image = (properties & 0x01) != 0;
+    
+    let (bullet_char, image_id) = if uses_image {
+        // Using image
+        let img_id = reader.read_u16()?;
+        (None, Some(img_id))
+    } else {
+        // Using text character
+        let char = parser.read_hwp_string()?;
+        (Some(char), None)
+    };
+    
+    Ok(Bullet {
+        properties,
+        paragraph_shape_id,
+        bullet_char,
+        image_id,
+    })
 }
 
 #[cfg(test)]
@@ -356,5 +471,118 @@ mod tests {
         assert_eq!(style.properties, 1);
         assert_eq!(style.next_style_id, 255);
         assert_eq!(style.lang_id, 0x0412);
+    }
+    
+    #[test]
+    fn test_parse_id_mappings() {
+        let data = vec![
+            0x03, 0x00, 0x00, 0x00, // count: 3
+            0x01, 0x00, 0x00, 0x00, // mapping[0]: 1
+            0x02, 0x00, 0x00, 0x00, // mapping[1]: 2
+            0x03, 0x00, 0x00, 0x00, // mapping[2]: 3
+        ];
+        
+        let mappings = parse_id_mappings(&data).unwrap();
+        assert_eq!(mappings.len(), 3);
+        assert_eq!(mappings[0], 1);
+        assert_eq!(mappings[1], 2);
+        assert_eq!(mappings[2], 3);
+    }
+    
+    #[test]
+    fn test_parse_bin_data() {
+        let data = vec![
+            0x01, 0x00, // properties/id: 1
+            0x00,       // link_type: 0 (embedded)
+            0x01,       // compression_type: 1 (compressed)
+            0xDE, 0xAD, 0xBE, 0xEF, // binary data
+        ];
+        
+        let bin_data = parse_bin_data(&data).unwrap();
+        assert_eq!(bin_data.id, 1);
+        assert_eq!(bin_data.link_type, 0);
+        assert_eq!(bin_data.compression_type, 1);
+        assert_eq!(bin_data.data, vec![0xDE, 0xAD, 0xBE, 0xEF]);
+    }
+    
+    #[test]
+    fn test_parse_tab_def() {
+        let data = vec![
+            0x01, 0x00, 0x00, 0x00, // properties: 1
+            0x02, 0x00, 0x00, 0x00, // count: 2
+            // Tab 1
+            0x00, 0x05, 0x00, 0x00, // position: 1280 (5 * 256)
+            0x00,       // tab_type: 0 (left)
+            0x01,       // fill_type: 1 (dots)
+            0x00, 0x00, // reserved
+            // Tab 2
+            0x00, 0x0A, 0x00, 0x00, // position: 2560 (10 * 256)
+            0x01,       // tab_type: 1 (center)
+            0x00,       // fill_type: 0 (none)
+            0x00, 0x00, // reserved
+        ];
+        
+        let tab_def = parse_tab_def(&data).unwrap();
+        assert_eq!(tab_def.properties, 1);
+        assert_eq!(tab_def.count, 2);
+        assert_eq!(tab_def.tabs.len(), 2);
+        assert_eq!(tab_def.tabs[0].position, 0x0500);
+        assert_eq!(tab_def.tabs[0].tab_type, 0);
+        assert_eq!(tab_def.tabs[0].fill_type, 1);
+        assert_eq!(tab_def.tabs[1].position, 0x0A00);
+        assert_eq!(tab_def.tabs[1].tab_type, 1);
+        assert_eq!(tab_def.tabs[1].fill_type, 0);
+    }
+    
+    #[test]
+    fn test_parse_numbering() {
+        let data = vec![
+            // Level 1
+            0x01, 0x00, 0x00, 0x00, // properties: 1
+            0x00, 0x00, // paragraph_shape_id: 0
+            0x02, 0x00, // format string length: 2
+            0x31, 0x00, // '1'
+            0x2E, 0x00, // '.'
+            0x01, 0x00, // start_number: 1
+        ];
+        
+        let numbering = parse_numbering(&data).unwrap();
+        assert_eq!(numbering.levels.len(), 1);
+        assert_eq!(numbering.levels[0].properties, 1);
+        assert_eq!(numbering.levels[0].paragraph_shape_id, 0);
+        assert_eq!(numbering.levels[0].format, "1.");
+        assert_eq!(numbering.levels[0].start_number, 1);
+    }
+    
+    #[test]
+    fn test_parse_bullet() {
+        // Test text bullet
+        let data_text = vec![
+            0x00, 0x00, 0x00, 0x00, // properties: 0 (text bullet)
+            0x00, 0x00, // paragraph_shape_id: 0
+            0x01, 0x00, // char string length: 1 character (not bytes)
+            0x22, 0x20, // '•' (U+2022 bullet character in UTF-16LE)
+        ];
+        
+        let bullet = parse_bullet(&data_text).unwrap();
+        assert_eq!(bullet.properties, 0);
+        assert_eq!(bullet.paragraph_shape_id, 0);
+        assert!(bullet.bullet_char.is_some());
+        assert_eq!(bullet.bullet_char.unwrap(), "•");
+        assert!(bullet.image_id.is_none());
+        
+        // Test image bullet
+        let data_image = vec![
+            0x01, 0x00, 0x00, 0x00, // properties: 1 (uses image)
+            0x00, 0x00, // paragraph_shape_id: 0
+            0x05, 0x00, // image_id: 5
+        ];
+        
+        let bullet = parse_bullet(&data_image).unwrap();
+        assert_eq!(bullet.properties, 1);
+        assert_eq!(bullet.paragraph_shape_id, 0);
+        assert!(bullet.bullet_char.is_none());
+        assert!(bullet.image_id.is_some());
+        assert_eq!(bullet.image_id.unwrap(), 5);
     }
 }

@@ -66,6 +66,24 @@ pub struct DocInfo {
     
     /// Border fills
     pub border_fills: Vec<BorderFill>,
+    
+    /// ID mappings for internal references
+    pub id_mappings: Vec<u32>,
+    
+    /// Binary data entries (embedded files, images, etc.)
+    pub bin_data_entries: Vec<BinDataEntry>,
+    
+    /// Document-specific data
+    pub doc_data: Vec<u8>,
+    
+    /// Tab definitions
+    pub tab_defs: Vec<TabDef>,
+    
+    /// Numbering definitions
+    pub numberings: Vec<Numbering>,
+    
+    /// Bullet definitions  
+    pub bullets: Vec<Bullet>,
 }
 
 /// Document properties
@@ -186,4 +204,59 @@ pub struct BorderLine {
     pub line_type: u8,
     pub thickness: u8,
     pub color: u32,
+}
+
+/// Binary data entry
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct BinDataEntry {
+    pub id: u16,
+    pub link_type: u8,
+    pub compression_type: u8,
+    pub data: Vec<u8>,
+}
+
+/// Tab definition
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct TabDef {
+    pub properties: u32,
+    pub count: u32,
+    pub tabs: Vec<TabInfo>,
+}
+
+/// Individual tab information
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct TabInfo {
+    pub position: i32,
+    pub tab_type: u8,
+    pub fill_type: u8,
+}
+
+/// Numbering definition
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct Numbering {
+    pub levels: Vec<NumberingLevel>,
+}
+
+/// Numbering level information
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct NumberingLevel {
+    pub properties: u32,
+    pub paragraph_shape_id: u16,
+    pub format: String,
+    pub start_number: u16,
+}
+
+/// Bullet definition
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct Bullet {
+    pub properties: u32,
+    pub paragraph_shape_id: u16,
+    pub bullet_char: Option<String>,
+    pub image_id: Option<u16>,
 }

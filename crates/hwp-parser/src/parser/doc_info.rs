@@ -51,27 +51,44 @@ pub fn parse_doc_info(data: &[u8]) -> Result<DocInfo> {
             
             doc_info::ID_MAPPINGS => {
                 // ID mappings are used internally for reference resolution
-                let _mappings = parse_id_mappings(&record.data)
+                let mappings = parse_id_mappings(&record.data)
                     .map_err(|e| HwpError::ParseError { offset: 0, message: format!("Failed to parse ID mappings: {}", e) })?;
-                // Store or use mappings as needed
+                doc_info.id_mappings = mappings;
             }
             
             doc_info::BIN_DATA => {
                 // Binary data storage - typically images or embedded objects
-                let _bin_data = parse_bin_data(&record.data)
+                let bin_data = parse_bin_data(&record.data)
                     .map_err(|e| HwpError::ParseError { offset: 0, message: format!("Failed to parse binary data: {}", e) })?;
-                // Store in document's bin_data HashMap with appropriate ID
+                doc_info.bin_data_entries.push(bin_data);
             }
             
             doc_info::DOC_DATA => {
                 // Document-specific data
-                let _doc_data = parse_doc_data(&record.data)
+                let doc_data = parse_doc_data(&record.data)
                     .map_err(|e| HwpError::ParseError { offset: 0, message: format!("Failed to parse document data: {}", e) })?;
-                // Process document data as needed
+                doc_info.doc_data = doc_data;
+            }
+            
+            doc_info::TAB_DEF => {
+                let tab_def = parse_tab_def(&record.data)
+                    .map_err(|e| HwpError::ParseError { offset: 0, message: format!("Failed to parse tab definition: {}", e) })?;
+                doc_info.tab_defs.push(tab_def);
+            }
+            
+            doc_info::NUMBERING => {
+                let numbering = parse_numbering(&record.data)
+                    .map_err(|e| HwpError::ParseError { offset: 0, message: format!("Failed to parse numbering: {}", e) })?;
+                doc_info.numberings.push(numbering);
+            }
+            
+            doc_info::BULLET => {
+                let bullet = parse_bullet(&record.data)
+                    .map_err(|e| HwpError::ParseError { offset: 0, message: format!("Failed to parse bullet: {}", e) })?;
+                doc_info.bullets.push(bullet);
             }
             
             // Handle other record types
-            doc_info::TAB_DEF | doc_info::NUMBERING | doc_info::BULLET |
             doc_info::DISTRIBUTE_DOC_DATA | doc_info::COMPATIBLE_DOCUMENT |
             doc_info::LAYOUT_COMPATIBILITY | doc_info::TRACK_CHANGE |
             doc_info::MEMO_SHAPE | doc_info::FORBIDDEN_CHAR |
