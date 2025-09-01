@@ -5,7 +5,7 @@ use hwp_core::constants::tag_id::section;
 use hwp_core::models::paragraph::{ParagraphHeader, CharShapePos, LineSegment};
 use hwp_core::models::section::Section;
 use hwp_core::models::Paragraph;
-use hwp_core::{HwpError, Result};
+use hwp_core::Result;
 
 /// Parse a section from decompressed data
 pub fn parse_section(data: &[u8], _section_index: usize) -> Result<Section> {
@@ -87,7 +87,7 @@ fn parse_para_header(data: &[u8]) -> Result<ParagraphHeader> {
     Ok(header)
 }
 
-/// Parse paragraph text
+/// Parse paragraph text with proper control character handling
 fn parse_para_text(data: &[u8]) -> Result<String> {
     // Text is stored as UTF-16LE
     let mut text = String::new();
@@ -97,17 +97,79 @@ fn parse_para_text(data: &[u8]) -> Result<String> {
         let ch = u16::from_le_bytes([data[i], data[i + 1]]);
         i += 2;
         
-        // Handle special characters
+        // Handle special characters and control codes
         match ch {
             0x0000 => break, // Null terminator
+            0x0009 => text.push('\t'), // Tab
             0x000A => text.push('\n'), // Line feed
-            0x000D => continue, // Carriage return (skip)
-            0x0001..=0x001F => {
-                // Control characters - these might be inline controls
-                // For now, skip them
+            0x000D => continue, // Carriage return (skip in Windows-style line endings)
+            
+            // HWP specific control characters
+            0x0001 => {
+                // Reserved for future use
                 continue;
             }
+            0x0002 => {
+                // Section column definition - marks column break
+                // For text extraction, we can treat this as a space or newline
+                text.push(' ');
+            }
+            0x0003 => {
+                // Section definition - marks section break
+                text.push('\n');
+            }
+            0x0004..=0x0007 => {
+                // Reserved control characters
+                continue;
+            }
+            0x0008 => {
+                // Field start - inline control object follows
+                // For now, skip the control data
+                if i + 5 < data.len() {
+                    // Control objects have additional data we need to skip
+                    // Format: type(4 bytes) + additional data
+                    i += 8; // Skip control ID and basic info
+                    // TODO: Parse control objects properly
+                }
+                continue;
+            }
+            0x000B => {
+                // Drawing object/table - for text extraction, skip
+                if i + 5 < data.len() {
+                    i += 8; // Skip control data
+                }
+                continue;
+            }
+            0x000C => {
+                // Form feed / page break
+                text.push('\n');
+            }
+            0x000E..=0x0017 => {
+                // Reserved for special controls
+                continue;
+            }
+            0x0018 => {
+                // Column break
+                text.push('\n');
+            }
+            0x0019 => {
+                // Section break
+                text.push('\n');
+            }
+            0x001A..=0x001D => {
+                // Reserved
+                continue;
+            }
+            0x001E => {
+                // Hyphen
+                text.push('-');
+            }
+            0x001F => {
+                // Non-breaking space
+                text.push('\u{00A0}');
+            }
             _ => {
+                // Regular character
                 if let Some(c) = char::from_u32(ch as u32) {
                     text.push(c);
                 }
