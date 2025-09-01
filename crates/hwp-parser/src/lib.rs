@@ -1,6 +1,7 @@
 pub mod reader;
 pub mod parser;
 pub mod compression;
+pub mod cfb;
 
 use hwp_core::{HwpDocument, Result};
 
