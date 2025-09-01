@@ -1,7 +1,8 @@
 use crate::parser::record::RecordDataParser;
 use crate::reader::ByteReader;
 use hwp_core::models::document::{
-    DocumentProperties, CharShape, ParaShape, Style, FaceName, FaceNameType, BorderFill, BorderLine
+    DocumentProperties, CharShape, ParaShape, Style, FaceName, FaceNameType, BorderFill, BorderLine,
+    TabDef, TabItem, Numbering, NumberingLevel, Bullet
 };
 use hwp_core::Result;
 
@@ -282,6 +283,84 @@ pub fn parse_bin_data(data: &[u8]) -> Result<Vec<u8>> {
 pub fn parse_doc_data(data: &[u8]) -> Result<Vec<u8>> {
     // DOC_DATA is application-specific data
     Ok(data.to_vec())
+}
+
+/// Parse TAB_DEF record (tag 0x0016)
+pub fn parse_tab_def(data: &[u8]) -> Result<TabDef> {
+    let mut parser = RecordDataParser::new(data);
+    
+    let properties = parser.reader().read_u32()?;
+    let count = parser.reader().read_u16()?;
+    
+    let mut tabs = Vec::with_capacity(count as usize);
+    for _ in 0..count {
+        tabs.push(TabItem {
+            position: parser.reader().read_u32()?,
+            tab_type: parser.reader().read_u8()?,
+            fill_type: parser.reader().read_u8()?,
+            reserved: parser.reader().read_u16()?,
+        });
+    }
+    
+    Ok(TabDef {
+        properties,
+        count,
+        tabs,
+    })
+}
+
+/// Parse NUMBERING record (tag 0x0017)
+pub fn parse_numbering(data: &[u8]) -> Result<Numbering> {
+    let mut parser = RecordDataParser::new(data);
+    
+    // HWP numbering has 7 levels
+    let mut levels = Vec::with_capacity(7);
+    
+    for _ in 0..7 {
+        if !parser.has_more_data() {
+            break;
+        }
+        
+        let paragraph_properties = parser.reader().read_u32()?;
+        let paragraph_style_id = parser.reader().read_u16()?;
+        let number_format = parser.reader().read_u8()?;
+        let start_number = parser.reader().read_u16()?;
+        let format_chars = parser.read_hwp_string()?;
+        
+        levels.push(NumberingLevel {
+            paragraph_properties,
+            paragraph_style_id,
+            number_format,
+            start_number,
+            format_chars,
+        });
+    }
+    
+    Ok(Numbering { levels })
+}
+
+/// Parse BULLET record (tag 0x0018)
+pub fn parse_bullet(data: &[u8]) -> Result<Bullet> {
+    let mut parser = RecordDataParser::new(data);
+    
+    let paragraph_properties = parser.reader().read_u32()?;
+    let paragraph_style_id = parser.reader().read_u16()?;
+    let bullet_char = parser.read_hwp_string()?;
+    
+    let use_image = parser.reader().read_u8()? != 0;
+    let image_id = if use_image && parser.has_more_data() {
+        Some(parser.reader().read_u16()?)
+    } else {
+        None
+    };
+    
+    Ok(Bullet {
+        paragraph_properties,
+        paragraph_style_id,
+        bullet_char,
+        use_image,
+        image_id,
+    })
 }
 
 #[cfg(test)]
