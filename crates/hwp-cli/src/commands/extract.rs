@@ -31,6 +31,22 @@ pub struct ExtractCommand {
     #[arg(long)]
     pub sections: Option<String>,
     
+    /// Extract specific paragraph range (e.g., "1-10" or "5-")
+    #[arg(long)]
+    pub paragraphs: Option<String>,
+    
+    /// Extract tables only
+    #[arg(long)]
+    pub tables_only: bool,
+    
+    /// Extract images only
+    #[arg(long)]
+    pub images_only: bool,
+    
+    /// Extract equations only
+    #[arg(long)]
+    pub equations_only: bool,
+    
     /// Search and extract matching content
     #[arg(long)]
     pub search: Option<String>,
@@ -68,11 +84,21 @@ impl ExtractCommand {
         options.markdown_toc = self.markdown_toc;
         options.json_pretty = self.json_pretty;
         options.json_include_styles = self.json_include_styles;
+        options.include_metadata = self.include_metadata;
+        options.include_styles = self.json_include_styles;
         
         // Extract content based on format
         let output = if self.format == "text" || self.format == "txt" {
-            // Handle section filtering
-            if let Some(sections_str) = &self.sections {
+            // Handle special extraction modes
+            if self.tables_only {
+                self.extract_tables(&document)?
+            } else if self.images_only {
+                self.extract_images(&document)?
+            } else if self.equations_only {
+                self.extract_equations(&document)?
+            } else if let Some(paragraphs_str) = &self.paragraphs {
+                self.extract_paragraphs(&document, paragraphs_str)?
+            } else if let Some(sections_str) = &self.sections {
                 self.extract_sections(&document, sections_str)?
             } else if let Some(search_query) = &self.search {
                 self.search_and_extract(&document, search_query)?
@@ -86,6 +112,8 @@ impl ExtractCommand {
             let format = match self.format.as_str() {
                 "json" => OutputFormat::Json,
                 "markdown" | "md" => OutputFormat::Markdown,
+                "html" | "htm" => OutputFormat::Html,
+                "yaml" | "yml" => OutputFormat::Yaml,
                 _ => {
                     return Err(anyhow::anyhow!("Unsupported format: {}", self.format));
                 }
@@ -105,6 +133,55 @@ impl ExtractCommand {
         }
         
         Ok(())
+    }
+    
+    fn parse_range(&self, range_str: &str) -> Result<(Option<usize>, Option<usize>)> {
+        if range_str.contains('-') {
+            let parts: Vec<&str> = range_str.split('-').collect();
+            if parts.len() != 2 {
+                return Err(anyhow::anyhow!("Invalid range format"));
+            }
+            let start = if parts[0].is_empty() {
+                None
+            } else {
+                Some(parts[0].parse()?)
+            };
+            let end = if parts[1].is_empty() {
+                None
+            } else {
+                Some(parts[1].parse()?)
+            };
+            Ok((start, end))
+        } else {
+            let num = range_str.parse()?;
+            Ok((Some(num), Some(num)))
+        }
+    }
+    
+    fn extract_paragraphs(&self, document: &HwpDocument, range_str: &str) -> Result<String> {
+        let mut result = String::new();
+        let (start, end) = self.parse_range(range_str)?;
+        let start = start.unwrap_or(0);
+        
+        let mut para_count = 0;
+        for (section_idx, section) in document.sections.iter().enumerate() {
+            for paragraph in &section.paragraphs {
+                if para_count >= start {
+                    if let Some(end) = end {
+                        if para_count > end {
+                            return Ok(result);
+                        }
+                    }
+                    if !paragraph.text.is_empty() {
+                        result.push_str(&format!("[P{}] {}", para_count, &paragraph.text));
+                        result.push('\n');
+                    }
+                }
+                para_count += 1;
+            }
+        }
+        
+        Ok(result)
     }
     
     fn extract_sections(&self, document: &HwpDocument, sections_str: &str) -> Result<String> {
@@ -180,6 +257,36 @@ impl ExtractCommand {
         if result.is_empty() {
             result = format!("No matches found for: {}", query);
         }
+        
+        Ok(result)
+    }
+    
+    fn extract_tables(&self, document: &HwpDocument) -> Result<String> {
+        let mut result = String::new();
+        result.push_str("=== Tables Extraction ===\n\n");
+        
+        // TODO: Implement actual table extraction when table parsing is available
+        result.push_str("Table extraction will be available once table parsing is implemented.\n");
+        
+        Ok(result)
+    }
+    
+    fn extract_images(&self, document: &HwpDocument) -> Result<String> {
+        let mut result = String::new();
+        result.push_str("=== Images Extraction ===\n\n");
+        
+        // TODO: Implement actual image extraction when image handling is available
+        result.push_str("Image extraction will be available once image handling is implemented.\n");
+        
+        Ok(result)
+    }
+    
+    fn extract_equations(&self, document: &HwpDocument) -> Result<String> {
+        let mut result = String::new();
+        result.push_str("=== Equations Extraction ===\n\n");
+        
+        // TODO: Implement actual equation extraction when equation parsing is available
+        result.push_str("Equation extraction will be available once equation parsing is implemented.\n");
         
         Ok(result)
     }

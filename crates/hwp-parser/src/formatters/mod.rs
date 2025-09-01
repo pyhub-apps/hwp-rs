@@ -1,6 +1,8 @@
 pub mod plain_text;
 pub mod json;
 pub mod markdown;
+pub mod html;
+pub mod yaml;
 
 use hwp_core::{HwpDocument, Result};
 use hwp_core::models::{Section, Paragraph};
@@ -36,6 +38,10 @@ pub struct FormatOptions {
     pub markdown_flavor: MarkdownFlavor,
     /// Generate table of contents for Markdown
     pub markdown_toc: bool,
+    /// Include metadata in output
+    pub include_metadata: bool,
+    /// Include style information
+    pub include_styles: bool,
 }
 
 impl Default for FormatOptions {
@@ -47,6 +53,8 @@ impl Default for FormatOptions {
             text_page_breaks: false,
             markdown_flavor: MarkdownFlavor::CommonMark,
             markdown_toc: false,
+            include_metadata: false,
+            include_styles: false,
         }
     }
 }
@@ -64,6 +72,8 @@ pub enum OutputFormat {
     Json,
     PlainText,
     Markdown,
+    Html,
+    Yaml,
 }
 
 impl OutputFormat {
@@ -73,6 +83,8 @@ impl OutputFormat {
             OutputFormat::Json => Box::new(json::JsonFormatter::new(options)),
             OutputFormat::PlainText => Box::new(plain_text::PlainTextFormatter::new(options)),
             OutputFormat::Markdown => Box::new(markdown::MarkdownFormatter::new(options)),
+            OutputFormat::Html => Box::new(html::HtmlFormatter::new(options)),
+            OutputFormat::Yaml => Box::new(yaml::YamlFormatter::new(options)),
         }
     }
     
@@ -82,6 +94,8 @@ impl OutputFormat {
             "json" => Some(OutputFormat::Json),
             "text" | "txt" | "plain" => Some(OutputFormat::PlainText),
             "markdown" | "md" => Some(OutputFormat::Markdown),
+            "html" | "htm" => Some(OutputFormat::Html),
+            "yaml" | "yml" => Some(OutputFormat::Yaml),
             _ => None,
         }
     }
@@ -92,6 +106,8 @@ impl OutputFormat {
             OutputFormat::Json => "json",
             OutputFormat::PlainText => "txt",
             OutputFormat::Markdown => "md",
+            OutputFormat::Html => "html",
+            OutputFormat::Yaml => "yaml",
         }
     }
 }

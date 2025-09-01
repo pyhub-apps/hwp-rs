@@ -39,6 +39,26 @@ pub struct InfoCommand {
     /// Check file integrity
     #[arg(long)]
     pub check_integrity: bool,
+    
+    /// Show only document metadata
+    #[arg(long)]
+    pub metadata_only: bool,
+    
+    /// Analyze document complexity
+    #[arg(long)]
+    pub analyze_complexity: bool,
+    
+    /// Show word frequency analysis
+    #[arg(long)]
+    pub word_frequency: bool,
+    
+    /// Show paragraph statistics
+    #[arg(long)]
+    pub paragraph_stats: bool,
+    
+    /// Show style usage analysis
+    #[arg(long)]
+    pub style_analysis: bool,
 }
 
 impl InfoCommand {
@@ -155,6 +175,26 @@ impl InfoCommand {
             }
         }
         
+        // Analyze document complexity if requested
+        if self.analyze_complexity {
+            info.push_str(&self.analyze_document_complexity(document));
+        }
+        
+        // Show word frequency if requested
+        if self.word_frequency {
+            info.push_str(&self.show_word_frequency(document));
+        }
+        
+        // Show paragraph statistics if requested
+        if self.paragraph_stats {
+            info.push_str(&self.show_paragraph_statistics(document));
+        }
+        
+        // Show style usage analysis if requested
+        if self.style_analysis {
+            info.push_str(&self.analyze_style_usage(document));
+        }
+        
         Ok(info)
     }
     
@@ -251,5 +291,142 @@ impl InfoCommand {
         } else {
             Ok(serde_json::to_string(&info)?)
         }
+    }
+    
+    fn analyze_document_complexity(&self, document: &HwpDocument) -> String {
+        let mut info = String::new();
+        info.push_str("\n=== Document Complexity Analysis ===\n");
+        
+        let total_sections = document.sections.len();
+        let total_paragraphs: usize = document.sections.iter()
+            .map(|s| s.paragraphs.len())
+            .sum();
+        let total_chars: usize = document.sections.iter()
+            .flat_map(|s| &s.paragraphs)
+            .map(|p| p.text.len())
+            .sum();
+        let avg_para_length = if total_paragraphs > 0 {
+            total_chars / total_paragraphs
+        } else {
+            0
+        };
+        
+        // Calculate complexity score (simple heuristic)
+        let complexity_score = (total_sections as f64 * 0.1)
+            + (total_paragraphs as f64 * 0.01)
+            + (total_chars as f64 * 0.0001);
+        
+        info.push_str(&format!("Complexity Score: {:.2}\n", complexity_score));
+        info.push_str(&format!("Average paragraph length: {} characters\n", avg_para_length));
+        
+        // Classify complexity
+        let complexity_level = match complexity_score {
+            s if s < 10.0 => "Simple",
+            s if s < 50.0 => "Moderate",
+            s if s < 100.0 => "Complex",
+            _ => "Very Complex",
+        };
+        info.push_str(&format!("Complexity Level: {}\n", complexity_level));
+        
+        info
+    }
+    
+    fn show_word_frequency(&self, document: &HwpDocument) -> String {
+        use std::collections::HashMap;
+        
+        let mut info = String::new();
+        info.push_str("\n=== Word Frequency Analysis ===\n");
+        
+        let mut word_count: HashMap<String, usize> = HashMap::new();
+        
+        for section in &document.sections {
+            for paragraph in &section.paragraphs {
+                let words = paragraph.text.split_whitespace();
+                for word in words {
+                    // Simple normalization (lowercase)
+                    let normalized = word.to_lowercase();
+                    *word_count.entry(normalized).or_insert(0) += 1;
+                }
+            }
+        }
+        
+        // Sort by frequency
+        let mut word_vec: Vec<_> = word_count.iter().collect();
+        word_vec.sort_by(|a, b| b.1.cmp(a.1));
+        
+        // Show top 10 words
+        info.push_str("Top 10 most frequent words:\n");
+        for (i, (word, count)) in word_vec.iter().take(10).enumerate() {
+            info.push_str(&format!("  {}. '{}': {} occurrences\n", i + 1, word, count));
+        }
+        
+        info.push_str(&format!("Total unique words: {}\n", word_count.len()));
+        
+        info
+    }
+    
+    fn show_paragraph_statistics(&self, document: &HwpDocument) -> String {
+        let mut info = String::new();
+        info.push_str("\n=== Paragraph Statistics ===\n");
+        
+        let mut lengths: Vec<usize> = Vec::new();
+        let mut empty_count = 0;
+        
+        for section in &document.sections {
+            for paragraph in &section.paragraphs {
+                if paragraph.text.is_empty() {
+                    empty_count += 1;
+                } else {
+                    lengths.push(paragraph.text.len());
+                }
+            }
+        }
+        
+        if lengths.is_empty() {
+            info.push_str("No non-empty paragraphs found\n");
+            return info;
+        }
+        
+        lengths.sort();
+        
+        let total: usize = lengths.iter().sum();
+        let avg = total / lengths.len();
+        let median = lengths[lengths.len() / 2];
+        let min = lengths[0];
+        let max = lengths[lengths.len() - 1];
+        
+        info.push_str(&format!("Non-empty paragraphs: {}\n", lengths.len()));
+        info.push_str(&format!("Empty paragraphs: {}\n", empty_count));
+        info.push_str(&format!("Average length: {} characters\n", avg));
+        info.push_str(&format!("Median length: {} characters\n", median));
+        info.push_str(&format!("Shortest paragraph: {} characters\n", min));
+        info.push_str(&format!("Longest paragraph: {} characters\n", max));
+        
+        info
+    }
+    
+    fn analyze_style_usage(&self, document: &HwpDocument) -> String {
+        let mut info = String::new();
+        info.push_str("\n=== Style Usage Analysis ===\n");
+        
+        // Count unique char shapes and para shapes used
+        info.push_str(&format!("Character shapes defined: {}\n", document.doc_info.char_shapes.len()));
+        info.push_str(&format!("Paragraph shapes defined: {}\n", document.doc_info.para_shapes.len()));
+        info.push_str(&format!("Styles defined: {}\n", document.doc_info.styles.len()));
+        
+        // Show style distribution
+        if !document.doc_info.styles.is_empty() {
+            let para_styles = document.doc_info.styles.iter()
+                .filter(|s| s.properties & 0x07 == 0)
+                .count();
+            let char_styles = document.doc_info.styles.iter()
+                .filter(|s| s.properties & 0x07 == 1)
+                .count();
+            
+            info.push_str(&format!("Paragraph styles: {}\n", para_styles));
+            info.push_str(&format!("Character styles: {}\n", char_styles));
+        }
+        
+        info
     }
 }

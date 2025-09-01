@@ -1,9 +1,11 @@
 mod commands;
+mod batch;
+mod error;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use colored::*;
-use commands::{ExtractCommand, InfoCommand, ConvertCommand, ValidateCommand};
+use commands::{ExtractCommand, InfoCommand, ConvertCommand, ValidateCommand, SearchCommand, BatchCommand};
 
 #[derive(Parser)]
 #[command(name = "hwp")]
@@ -35,6 +37,12 @@ enum Commands {
     
     /// Validate HWP file integrity and structure
     Validate(ValidateCommand),
+    
+    /// Search for content in HWP files
+    Search(SearchCommand),
+    
+    /// Process multiple HWP files in batch
+    Batch(BatchCommand),
     
     /// Inspect HWP file metadata (legacy, use 'info' instead)
     #[command(hide = true)]
@@ -73,6 +81,8 @@ fn main() -> Result<()> {
         Commands::Info(cmd) => cmd.execute(),
         Commands::Convert(cmd) => cmd.execute(),
         Commands::Validate(cmd) => cmd.execute(),
+        Commands::Search(cmd) => cmd.execute(),
+        Commands::Batch(cmd) => cmd.execute(),
         Commands::Inspect { file } => {
             // Legacy command - redirect to info
             eprintln!("{}", "Note: 'inspect' is deprecated, use 'info' instead".yellow());
@@ -85,6 +95,11 @@ fn main() -> Result<()> {
                 fonts: false,
                 styles: false,
                 check_integrity: false,
+                metadata_only: false,
+                analyze_complexity: false,
+                word_frequency: false,
+                paragraph_stats: false,
+                style_analysis: false,
             };
             info_cmd.execute()
         }
