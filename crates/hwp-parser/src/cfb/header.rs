@@ -48,9 +48,7 @@ impl CfbHeader {
     /// Parse CFB header from a reader
     pub fn from_reader<R: Read + Seek>(reader: &mut R) -> Result<Self> {
         // Ensure we're at the beginning
-        reader
-            .seek(SeekFrom::Start(0))
-            .map_err(HwpError::IoError)?;
+        reader.seek(SeekFrom::Start(0)).map_err(HwpError::IoError)?;
 
         let mut header = CfbHeader {
             signature: [0; 8],

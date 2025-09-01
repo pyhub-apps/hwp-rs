@@ -133,9 +133,7 @@ impl DirectoryEntry {
 
         // Read CLSID
         let mut clsid = [0u8; 16];
-        cursor
-            .read_exact(&mut clsid)
-            .map_err(HwpError::IoError)?;
+        cursor.read_exact(&mut clsid).map_err(HwpError::IoError)?;
 
         // Read state bits
         let state_bits = cursor

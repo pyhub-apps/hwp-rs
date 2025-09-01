@@ -116,8 +116,8 @@ impl Stream {
                 // - Valid BodyText tag_ids are typically 0x0042-0x0070
                 // - Level should be 0-3
                 // - Size should be reasonable (less than remaining data)
-                let valid_tag = (0x0010..=0x0080).contains(&tag_id)
-                    || (0x0042..=0x0070).contains(&tag_id);
+                let valid_tag =
+                    (0x0010..=0x0080).contains(&tag_id) || (0x0042..=0x0070).contains(&tag_id);
                 let valid_level = level <= 3;
                 let valid_size = size > 0 && size as usize <= (self.data.len() - 4);
 
