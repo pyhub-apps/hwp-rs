@@ -1,5 +1,5 @@
 use hwp_core::constants::tag_id::doc_info;
-use hwp_core::models::record::{Record, RecordHeader};
+use hwp_core::models::record::RecordHeader;
 use hwp_parser::parser::doc_info_records::*;
 use hwp_parser::parser::record::{RecordDataParser, RecordParser};
 use hwp_parser::validator::RecordContext;

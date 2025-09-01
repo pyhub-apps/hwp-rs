@@ -2,7 +2,6 @@ use byteorder::{LittleEndian, WriteBytesExt};
 use flate2::write::DeflateEncoder;
 use flate2::Compression;
 use hwp_parser::cfb::stream::Stream;
-use hwp_parser::compression::{decompress_hwp, decompress_raw};
 use std::io::Write;
 
 #[test]
@@ -12,12 +11,12 @@ fn test_docinfo_stream_compression_detection() {
 
     // Add multiple records like a real DocInfo would have
     // Record 1: Document Properties (0x0010)
-    let header1 = (0x0010u32) | (0u32 << 10) | (36u32 << 12);
+    let header1 = 0x0010u32 | (36u32 << 12);
     uncompressed.write_u32::<LittleEndian>(header1).unwrap();
     uncompressed.extend_from_slice(&[1u8; 36]); // dummy data
 
     // Record 2: Face Name (0x0012)
-    let header2 = (0x0012u32) | (0u32 << 10) | (20u32 << 12);
+    let header2 = 0x0012u32 | (20u32 << 12);
     uncompressed.write_u32::<LittleEndian>(header2).unwrap();
     uncompressed.extend_from_slice(&[2u8; 20]); // dummy data
 
@@ -64,7 +63,7 @@ fn test_bodytext_stream_compression() {
     let mut uncompressed = Vec::new();
 
     // Paragraph record (0x0043)
-    let para_header = (0x0043u32) | (0u32 << 10) | (100u32 << 12);
+    let para_header = 0x0043u32 | (100u32 << 12);
     uncompressed.write_u32::<LittleEndian>(para_header).unwrap();
     uncompressed.extend_from_slice(&[0xAAu8; 100]); // dummy paragraph data
 

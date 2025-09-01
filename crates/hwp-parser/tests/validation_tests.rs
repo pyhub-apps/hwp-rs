@@ -1,4 +1,3 @@
-use hwp_core::models::record::RecordHeader;
 use hwp_parser::parser::record::RecordParser;
 use hwp_parser::validator::{DefaultRecordValidator, RecordContext};
 
@@ -7,7 +6,7 @@ fn create_header(tag_id: u16, level: u16, size: u32) -> Vec<u8> {
     // Ensure values fit in their bit fields
     let tag_id = (tag_id & 0x3FF) as u32; // 10 bits
     let level = (level & 0x3FF) as u32; // 10 bits
-    let size = (size & 0xFFF) as u32; // 12 bits
+    let size = size & 0xFFF; // 12 bits
     let value = tag_id | (level << 10) | (size << 20);
     value.to_le_bytes().to_vec()
 }
