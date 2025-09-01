@@ -1,139 +1,110 @@
+mod commands;
+
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use hwp_parser::parse;
-use std::fs;
+use colored::*;
+use commands::{ExtractCommand, InfoCommand, ConvertCommand, ValidateCommand};
 
 #[derive(Parser)]
 #[command(name = "hwp")]
-#[command(about = "HWP file processing tool", long_about = None)]
+#[command(version, about = "HWP file processing tool", long_about = None)]
+#[command(author = "HWP-RS Contributors")]
 struct Cli {
+    /// Increase verbosity (can be used multiple times)
+    #[arg(short, long, action = clap::ArgAction::Count, global = true)]
+    verbose: u8,
+    
+    /// Suppress all output except errors
+    #[arg(short, long, global = true)]
+    quiet: bool,
+    
     #[command(subcommand)]
     command: Commands,
 }
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Inspect HWP file metadata
+    /// Extract content from HWP files with advanced options
+    Extract(ExtractCommand),
+    
+    /// Display comprehensive file information and analysis
+    Info(InfoCommand),
+    
+    /// Convert HWP files to other formats
+    Convert(ConvertCommand),
+    
+    /// Validate HWP file integrity and structure
+    Validate(ValidateCommand),
+    
+    /// Inspect HWP file metadata (legacy, use 'info' instead)
+    #[command(hide = true)]
     Inspect {
         /// Path to the HWP file
         file: String,
     },
-    /// Convert HWP file to another format
-    Convert {
-        /// Path to the HWP file
-        file: String,
-        /// Output format (json, text)
-        #[arg(short, long, default_value = "json")]
-        format: String,
-    },
-    /// Validate HWP file structure
-    Validate {
-        /// Path to the HWP file
-        file: String,
-    },
 }
 
-fn inspect_file(path: &str) -> Result<()> {
-    println!("Inspecting file: {}", path);
-    
-    // Read the file
-    let data = fs::read(path)?;
-    
-    // Parse the HWP document
-    let document = parse(&data)?;
-    
-    // Display header information
-    println!("\n=== HWP File Information ===");
-    println!("Version: {}", document.header.version);
-    println!("Properties: 0x{:08X}", document.header.properties.to_u32());
-    println!("Compressed: {}", if document.header.is_compressed() { "Yes" } else { "No" });
-    println!("Has password: {}", if document.header.has_password() { "Yes" } else { "No" });
-    println!("DRM protected: {}", if document.header.is_drm_document() { "Yes" } else { "No" });
-    
-    // Display document properties
-    println!("\n=== Document Properties ===");
-    println!("Section count: {}", document.doc_info.properties.section_count);
-    println!("Total pages: {}", document.doc_info.properties.total_page_count);
-    println!("Total characters: {}", document.doc_info.properties.total_character_count);
-    
-    // Display DocInfo summary
-    println!("\n=== DocInfo Summary ===");
-    println!("Character shapes: {}", document.doc_info.char_shapes.len());
-    println!("Paragraph shapes: {}", document.doc_info.para_shapes.len());
-    println!("Styles: {}", document.doc_info.styles.len());
-    println!("Face names (fonts): {}", document.doc_info.face_names.len());
-    println!("Border fills: {}", document.doc_info.border_fills.len());
-    
-    // Display sections
-    println!("\n=== Sections ===");
-    println!("Total sections: {}", document.sections.len());
-    for (idx, section) in document.sections.iter().enumerate() {
-        println!("  Section {}: {} paragraphs", idx, section.paragraphs.len());
+fn setup_logging(verbosity: u8, quiet: bool) {
+    if quiet {
+        return;
     }
     
-    // Extract and display text
-    println!("\n=== Extracted Text (first 500 chars) ===");
-    let text = document.get_text();
-    if text.is_empty() {
-        println!("(No text content found)");
-    } else {
-        let preview = if text.len() > 500 {
-            format!("{}...", &text[..500])
-        } else {
-            text.clone()
-        };
-        println!("{}", preview);
-        println!("\nTotal text length: {} characters", text.len());
-    }
+    let level = match verbosity {
+        0 => log::LevelFilter::Warn,
+        1 => log::LevelFilter::Info,
+        2 => log::LevelFilter::Debug,
+        _ => log::LevelFilter::Trace,
+    };
     
-    Ok(())
-}
-
-fn convert_file(path: &str, format: &str) -> Result<()> {
-    // Read and parse the file
-    let data = fs::read(path)?;
-    let document = parse(&data)?;
-    
-    match format {
-        "text" | "txt" => {
-            // Extract and output plain text
-            let text = document.get_text();
-            println!("{}", text);
-        }
-        "json" => {
-            // Output document structure as JSON
-            // For now, just output a simple structure
-            println!("{{");
-            println!("  \"version\": \"{}\",", document.header.version);
-            println!("  \"sections\": {},", document.sections.len());
-            println!("  \"text_length\": {},", document.get_text().len());
-            println!("  \"paragraphs\": {}", 
-                document.sections.iter().map(|s| s.paragraphs.len()).sum::<usize>());
-            println!("}}");
-        }
-        _ => {
-            eprintln!("Unsupported format: {}. Use 'text' or 'json'", format);
-        }
-    }
-    
-    Ok(())
+    env_logger::Builder::from_default_env()
+        .filter_level(level)
+        .init();
 }
 
 fn main() -> Result<()> {
-    env_logger::init();
     let cli = Cli::parse();
     
-    match cli.command {
+    // Setup logging
+    setup_logging(cli.verbose, cli.quiet);
+    
+    // Execute command
+    let result = match cli.command {
+        Commands::Extract(cmd) => cmd.execute(),
+        Commands::Info(cmd) => cmd.execute(),
+        Commands::Convert(cmd) => cmd.execute(),
+        Commands::Validate(cmd) => cmd.execute(),
         Commands::Inspect { file } => {
-            inspect_file(&file)?;
+            // Legacy command - redirect to info
+            eprintln!("{}", "Note: 'inspect' is deprecated, use 'info' instead".yellow());
+            let info_cmd = InfoCommand {
+                input: file.into(),
+                format: "text".to_string(),
+                output: None,
+                verbose: false,
+                stats: false,
+                fonts: false,
+                styles: false,
+                check_integrity: false,
+            };
+            info_cmd.execute()
         }
-        Commands::Convert { file, format } => {
-            convert_file(&file, &format)?;
+    };
+    
+    // Handle errors with colored output
+    if let Err(e) = result {
+        if !cli.quiet {
+            eprintln!("{}: {}", "Error".red().bold(), e);
+            
+            // Print error chain if verbose
+            if cli.verbose > 0 {
+                let mut source = e.source();
+                while let Some(err) = source {
+                    eprintln!("{}: {}", "Caused by".yellow(), err);
+                    source = err.source();
+                }
+            }
         }
-        Commands::Validate { file } => {
-            println!("Validating file: {}", file);
-            // TODO: Implement validation
-        }
+        std::process::exit(1);
     }
     
     Ok(())
