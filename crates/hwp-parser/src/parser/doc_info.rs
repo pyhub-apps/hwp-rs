@@ -51,36 +51,90 @@ pub fn parse_doc_info(data: &[u8]) -> Result<DocInfo> {
             
             doc_info::ID_MAPPINGS => {
                 // ID mappings are used internally for reference resolution
-                let _mappings = parse_id_mappings(&record.data)
+                let mappings = parse_id_mappings(&record.data)
                     .map_err(|e| HwpError::ParseError { offset: 0, message: format!("Failed to parse ID mappings: {}", e) })?;
-                // Store or use mappings as needed
+                doc_info.id_mappings = mappings;
             }
             
             doc_info::BIN_DATA => {
                 // Binary data storage - typically images or embedded objects
-                let _bin_data = parse_bin_data(&record.data)
+                let bin_data = parse_bin_data(&record.data)
                     .map_err(|e| HwpError::ParseError { offset: 0, message: format!("Failed to parse binary data: {}", e) })?;
-                // Store in document's bin_data HashMap with appropriate ID
+                doc_info.bin_data_entries.push(bin_data);
             }
             
             doc_info::DOC_DATA => {
                 // Document-specific data
-                let _doc_data = parse_doc_data(&record.data)
+                let doc_data = parse_doc_data(&record.data)
                     .map_err(|e| HwpError::ParseError { offset: 0, message: format!("Failed to parse document data: {}", e) })?;
-                // Process document data as needed
+                doc_info.doc_data = doc_data;
             }
             
-            // Handle other record types
-            doc_info::TAB_DEF | doc_info::NUMBERING | doc_info::BULLET |
-            doc_info::DISTRIBUTE_DOC_DATA | doc_info::COMPATIBLE_DOCUMENT |
-            doc_info::LAYOUT_COMPATIBILITY | doc_info::TRACK_CHANGE |
-            doc_info::MEMO_SHAPE | doc_info::FORBIDDEN_CHAR |
-            doc_info::TRACK_CHANGE_AUTHOR | doc_info::CHANGE_TRACKING => {
-                // These records are parsed but not yet fully implemented
-                // For now, we skip them with a debug message
-                #[cfg(feature = "debug")]
-                eprintln!("Skipping unimplemented DocInfo record: tag_id=0x{:04X}, size={}", 
-                         record.tag_id, record.size);
+            doc_info::TAB_DEF => {
+                let tab_def = parse_tab_def(&record.data)
+                    .map_err(|e| HwpError::ParseError { offset: 0, message: format!("Failed to parse tab definition: {}", e) })?;
+                doc_info.tab_defs.push(tab_def);
+            }
+            
+            doc_info::NUMBERING => {
+                let numbering = parse_numbering(&record.data)
+                    .map_err(|e| HwpError::ParseError { offset: 0, message: format!("Failed to parse numbering: {}", e) })?;
+                doc_info.numberings.push(numbering);
+            }
+            
+            doc_info::BULLET => {
+                let bullet = parse_bullet(&record.data)
+                    .map_err(|e| HwpError::ParseError { offset: 0, message: format!("Failed to parse bullet: {}", e) })?;
+                doc_info.bullets.push(bullet);
+            }
+            
+            doc_info::DISTRIBUTE_DOC_DATA => {
+                let distribute_data = parse_distribute_doc_data(&record.data)
+                    .map_err(|e| HwpError::ParseError { offset: 0, message: format!("Failed to parse distribute doc data: {}", e) })?;
+                doc_info.distribute_doc_data = Some(distribute_data);
+            }
+            
+            doc_info::COMPATIBLE_DOCUMENT => {
+                let compatible = parse_compatible_document(&record.data)
+                    .map_err(|e| HwpError::ParseError { offset: 0, message: format!("Failed to parse compatible document: {}", e) })?;
+                doc_info.compatible_document = Some(compatible);
+            }
+            
+            doc_info::LAYOUT_COMPATIBILITY => {
+                let layout_compat = parse_layout_compatibility(&record.data)
+                    .map_err(|e| HwpError::ParseError { offset: 0, message: format!("Failed to parse layout compatibility: {}", e) })?;
+                doc_info.layout_compatibility = Some(layout_compat);
+            }
+            
+            doc_info::TRACK_CHANGE => {
+                let track_change = parse_track_change(&record.data)
+                    .map_err(|e| HwpError::ParseError { offset: 0, message: format!("Failed to parse track change: {}", e) })?;
+                doc_info.track_changes.push(track_change);
+            }
+            
+            doc_info::TRACK_CHANGE_AUTHOR => {
+                let author = parse_track_change_author(&record.data)
+                    .map_err(|e| HwpError::ParseError { offset: 0, message: format!("Failed to parse track change author: {}", e) })?;
+                doc_info.track_change_authors.push(author);
+            }
+            
+            doc_info::MEMO_SHAPE => {
+                let memo = parse_memo_shape(&record.data)
+                    .map_err(|e| HwpError::ParseError { offset: 0, message: format!("Failed to parse memo shape: {}", e) })?;
+                doc_info.memo_shapes.push(memo);
+            }
+            
+            doc_info::FORBIDDEN_CHAR => {
+                let forbidden = parse_forbidden_char(&record.data)
+                    .map_err(|e| HwpError::ParseError { offset: 0, message: format!("Failed to parse forbidden char: {}", e) })?;
+                doc_info.forbidden_chars = Some(forbidden);
+            }
+            
+            // CHANGE_TRACKING is similar to TRACK_CHANGE, we can reuse the same parser
+            doc_info::CHANGE_TRACKING => {
+                let track_change = parse_track_change(&record.data)
+                    .map_err(|e| HwpError::ParseError { offset: 0, message: format!("Failed to parse change tracking: {}", e) })?;
+                doc_info.track_changes.push(track_change);
             }
             
             _ => {

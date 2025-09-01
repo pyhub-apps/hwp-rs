@@ -66,6 +66,45 @@ pub struct DocInfo {
     
     /// Border fills
     pub border_fills: Vec<BorderFill>,
+    
+    /// ID mappings for internal references
+    pub id_mappings: Vec<u32>,
+    
+    /// Binary data entries (embedded files, images, etc.)
+    pub bin_data_entries: Vec<BinDataEntry>,
+    
+    /// Document-specific data
+    pub doc_data: Vec<u8>,
+    
+    /// Tab definitions
+    pub tab_defs: Vec<TabDef>,
+    
+    /// Numbering definitions
+    pub numberings: Vec<Numbering>,
+    
+    /// Bullet definitions  
+    pub bullets: Vec<Bullet>,
+    
+    /// Document distribution data
+    pub distribute_doc_data: Option<DistributeDocData>,
+    
+    /// Compatible document settings
+    pub compatible_document: Option<CompatibleDocument>,
+    
+    /// Layout compatibility settings
+    pub layout_compatibility: Option<LayoutCompatibility>,
+    
+    /// Track changes
+    pub track_changes: Vec<TrackChange>,
+    
+    /// Track change authors
+    pub track_change_authors: Vec<TrackChangeAuthor>,
+    
+    /// Memo shapes
+    pub memo_shapes: Vec<MemoShape>,
+    
+    /// Forbidden characters
+    pub forbidden_chars: Option<ForbiddenChar>,
 }
 
 /// Document properties
@@ -186,4 +225,124 @@ pub struct BorderLine {
     pub line_type: u8,
     pub thickness: u8,
     pub color: u32,
+}
+
+/// Binary data entry
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct BinDataEntry {
+    pub id: u16,
+    pub link_type: u8,
+    pub compression_type: u8,
+    pub data: Vec<u8>,
+}
+
+/// Tab definition
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct TabDef {
+    pub properties: u32,
+    pub count: u32,
+    pub tabs: Vec<TabInfo>,
+}
+
+/// Individual tab information
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct TabInfo {
+    pub position: i32,
+    pub tab_type: u8,
+    pub fill_type: u8,
+}
+
+/// Numbering definition
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct Numbering {
+    pub levels: Vec<NumberingLevel>,
+}
+
+/// Numbering level information
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct NumberingLevel {
+    pub properties: u32,
+    pub paragraph_shape_id: u16,
+    pub format: String,
+    pub start_number: u16,
+}
+
+/// Bullet definition
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct Bullet {
+    pub properties: u32,
+    pub paragraph_shape_id: u16,
+    pub bullet_char: Option<String>,
+    pub image_id: Option<u16>,
+}
+
+/// Document distribution data
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct DistributeDocData {
+    pub data: Vec<u8>,
+}
+
+/// Compatible document settings
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct CompatibleDocument {
+    pub target_program: u32,
+}
+
+/// Layout compatibility settings
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct LayoutCompatibility {
+    pub letter_spacing: u32,
+    pub paragraph_spacing: u32,
+    pub line_grid: u32,
+    pub paragraph_grid: u32,
+    pub snap_to_grid: u32,
+}
+
+/// Track change information
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct TrackChange {
+    pub properties: u32,
+    pub author_id: u16,
+    pub timestamp: u64,
+    pub change_type: u16,
+    pub data: Vec<u8>,
+}
+
+/// Track change author
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct TrackChangeAuthor {
+    pub id: u16,
+    pub name: String,
+}
+
+/// Memo shape
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct MemoShape {
+    pub properties: u32,
+    pub memo_id: u32,
+    pub width: i32,
+    pub line_count: u16,
+    pub line_spacing: i16,
+    pub line_type: u8,
+    pub line_color: u32,
+}
+
+/// Forbidden characters
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct ForbiddenChar {
+    pub forbidden_chars: String,
+    pub allowed_chars: String,
 }
