@@ -2,7 +2,8 @@ use hwp_parser::parser::doc_info::parse_doc_info;
 
 /// Helper function to create a proper record header
 fn create_header(tag_id: u16, level: u8, size: usize) -> Vec<u8> {
-    let value = (tag_id as u32) | ((level as u32) << 16) | ((size as u32) << 18);
+    // Correct bit layout: tag_id (10 bits) | level (2 bits) | size (20 bits)
+    let value = (tag_id as u32) | ((level as u32) << 10) | ((size as u32) << 12);
     value.to_le_bytes().to_vec()
 }
 
@@ -12,18 +13,19 @@ fn create_sample_doc_info_data() -> Vec<u8> {
     
     // Record 1: DOCUMENT_PROPERTIES (tag 0x0010)
     data.extend(create_header(0x0010, 0, 36));
-    // Document properties data
-    data.extend_from_slice(&[0x03, 0x00]); // section_count: 3
-    data.extend_from_slice(&[0x01, 0x00]); // page_start_number: 1
-    data.extend_from_slice(&[0x01, 0x00]); // footnote_start_number: 1
-    data.extend_from_slice(&[0x01, 0x00]); // endnote_start_number: 1
-    data.extend_from_slice(&[0x01, 0x00]); // picture_start_number: 1
-    data.extend_from_slice(&[0x01, 0x00]); // table_start_number: 1
-    data.extend_from_slice(&[0x01, 0x00]); // equation_start_number: 1
-    data.extend_from_slice(&[0x64, 0x00, 0x00, 0x00]); // total_character_count: 100
-    data.extend_from_slice(&[0x05, 0x00, 0x00, 0x00]); // total_page_count: 5
-    // Padding to reach 36 bytes
-    data.extend_from_slice(&[0x00; 16]);
+    // Document properties data (36 bytes total)
+    data.extend_from_slice(&[0x03, 0x00]); // section_count: 3 (2 bytes)
+    data.extend_from_slice(&[0x01, 0x00]); // page_start_number: 1 (2 bytes)
+    data.extend_from_slice(&[0x01, 0x00]); // footnote_start_number: 1 (2 bytes)
+    data.extend_from_slice(&[0x01, 0x00]); // endnote_start_number: 1 (2 bytes)
+    data.extend_from_slice(&[0x01, 0x00]); // picture_start_number: 1 (2 bytes)
+    data.extend_from_slice(&[0x01, 0x00]); // table_start_number: 1 (2 bytes)
+    data.extend_from_slice(&[0x01, 0x00]); // equation_start_number: 1 (2 bytes)
+    data.extend_from_slice(&[0x64, 0x00, 0x00, 0x00]); // total_character_count: 100 (4 bytes)
+    data.extend_from_slice(&[0x05, 0x00, 0x00, 0x00]); // total_page_count: 5 (4 bytes)
+    // Total: 7*2 + 2*4 = 14 + 8 = 22 bytes
+    // Padding to reach 36 bytes: 36 - 22 = 14 bytes
+    data.extend_from_slice(&[0x00; 14]);
     
     // Record 2: FACE_NAME (tag 0x0013) - Arial
     data.extend(create_header(0x0013, 0, 13)); // 1 (props) + 2 (len) + 10 (5 chars * 2 bytes)
@@ -140,13 +142,15 @@ fn create_sample_style_data() -> Vec<u8> {
     // Korean name: "바탕"
     let korean_name = "바탕";
     let korean_utf16: Vec<u8> = korean_name.encode_utf16().flat_map(|c| c.to_le_bytes()).collect();
-    data.extend_from_slice(&(korean_name.len() as u16).to_le_bytes());
+    let korean_char_count = korean_name.encode_utf16().count();
+    data.extend_from_slice(&(korean_char_count as u16).to_le_bytes());
     data.extend_from_slice(&korean_utf16);
     
     // English name: "Normal"
     let english_name = "Normal";
     let english_utf16: Vec<u8> = english_name.encode_utf16().flat_map(|c| c.to_le_bytes()).collect();
-    data.extend_from_slice(&(english_name.len() as u16).to_le_bytes());
+    let english_char_count = english_name.encode_utf16().count();
+    data.extend_from_slice(&(english_char_count as u16).to_le_bytes());
     data.extend_from_slice(&english_utf16);
     
     data.push(0x01); // properties
@@ -242,12 +246,14 @@ fn test_unknown_record_handling() {
     
     // Valid document properties record
     data.extend(create_header(0x0010, 0, 36)); // header
-    // Add 36 bytes of data
-    data.extend_from_slice(&[0x01, 0x00]); // section_count: 1
-    data.extend_from_slice(&[0x00; 34]); // padding
+    // Add 36 bytes of data (proper structure)
+    data.extend_from_slice(&[0x01, 0x00]); // section_count: 1 (2 bytes)
+    data.extend_from_slice(&[0x00; 12]); // other fields (12 bytes for 6 u16 fields)
+    data.extend_from_slice(&[0x00; 8]); // two u32 fields (8 bytes)
+    data.extend_from_slice(&[0x00; 14]); // padding (14 bytes)
     
-    // Unknown record type
-    data.extend(create_header(0xFFFF, 0, 4)); // header: unknown tag, size=4
+    // Unknown record type (use 0x3FF - max value for 10-bit tag)
+    data.extend(create_header(0x3FF, 0, 4)); // header: unknown tag, size=4
     data.extend_from_slice(&[0x01, 0x02, 0x03, 0x04]); // unknown data
     
     let doc_info = parse_doc_info(&data).unwrap();
@@ -284,12 +290,14 @@ fn test_multiple_records_same_type() {
 fn test_extended_size_record() {
     let mut data = Vec::new();
     
-    // Create a record with extended size
-    data.extend(create_header(0x0010, 0, 0xFFF)); // header with extended size marker
-    data.extend_from_slice(&[0x08, 0x00, 0x00, 0x00]); // actual size: 8 bytes
-    // Document properties data (minimal)
-    data.extend_from_slice(&[0x01, 0x00]); // section_count: 1
-    data.extend_from_slice(&[0x00; 6]); // padding
+    // Create a record with extended size (0xFFFFF = 20 bits all set to 1)
+    data.extend(create_header(0x0010, 0, 0xFFFFF)); // header with extended size marker
+    data.extend_from_slice(&[0x24, 0x00, 0x00, 0x00]); // actual size: 36 bytes
+    // Document properties data (36 bytes)
+    data.extend_from_slice(&[0x01, 0x00]); // section_count: 1 (2 bytes)
+    data.extend_from_slice(&[0x00; 12]); // other u16 fields (12 bytes)
+    data.extend_from_slice(&[0x00; 8]); // two u32 fields (8 bytes)
+    data.extend_from_slice(&[0x00; 14]); // padding to reach 36 bytes
     
     let doc_info = parse_doc_info(&data).unwrap();
     assert_eq!(doc_info.properties.section_count, 1);

@@ -6,9 +6,10 @@ use hwp_core::models::record::{Record, RecordHeader};
 #[test]
 fn test_record_header_parsing() {
     // Test normal size record header
-    // Format: tag (16 bits) + level (2 bits) + size (12 bits) + reserved (2 bits)
-    // 0x0010 (tag) + 0 (level) + 4 (size) = 0x0010 + (0 << 16) + (4 << 18)
-    let header_bytes = [0x10, 0x00, 0x10, 0x00]; // tag=0x0010, level=0, size=4
+    // Correct bit layout: tag_id (10 bits) | level (2 bits) | size (20 bits)
+    // 0x0010 (tag) | 0 (level) << 10 | 4 (size) << 12
+    let value = (0x0010_u32) | (0_u32 << 10) | (4_u32 << 12);
+    let header_bytes = value.to_le_bytes();
     let header = RecordHeader::from_bytes(header_bytes);
     
     assert_eq!(header.tag_id(), 0x0010);
@@ -20,22 +21,31 @@ fn test_record_header_parsing() {
 #[test]
 fn test_extended_size_record_header() {
     // Test extended size record header
-    // 0x0010 (tag) + 0 (level) + 0xFFF (size) = 0x0010 + (0 << 16) + (0xFFF << 18)
-    let header_bytes = [0x10, 0x00, 0xFC, 0x3F]; // tag=0x0010, level=0, size=0xFFF
+    // Extended size marker is 0xFFFFF (20 bits all set to 1)
+    // Bit layout: tag_id (10 bits) | level (2 bits) | size (20 bits)
+    // 0x0010 (tag) | 0 (level) << 10 | 0xFFFFF (size) << 12
+    let value = (0x0010_u32) | (0_u32 << 10) | (0xFFFFF_u32 << 12);
+    let header_bytes = value.to_le_bytes();
     let header = RecordHeader::from_bytes(header_bytes);
     
     assert_eq!(header.tag_id(), 0x0010);
     assert_eq!(header.level(), 0);
-    assert_eq!(header.size(), 0xFFF);
+    assert_eq!(header.size(), 0xFFFFF);
     assert!(header.has_extended_size());
 }
 
 #[test]
 fn test_record_parsing() {
-    let data = vec![
-        // Record 1: DOCUMENT_PROPERTIES
-        0x10, 0x00, 0x90, 0x00, // header: tag=0x0010, level=0, size=36
-        // Document properties data (36 bytes)
+    // Create proper headers with correct bit layout
+    let doc_props_header = ((0x0010_u32) | (0_u32 << 10) | (36_u32 << 12)).to_le_bytes();
+    let face_name_header = ((0x0013_u32) | (0_u32 << 10) | (13_u32 << 12)).to_le_bytes();
+    
+    let mut data = vec![];
+    
+    // Record 1: DOCUMENT_PROPERTIES
+    data.extend_from_slice(&doc_props_header); // header: tag=0x0010, level=0, size=36
+    // Document properties data (36 bytes)
+    data.extend_from_slice(&[
         0x03, 0x00, // section_count: 3
         0x01, 0x00, // page_start_number: 1
         0x01, 0x00, // footnote_start_number: 1
@@ -48,9 +58,11 @@ fn test_record_parsing() {
         // Padding to reach 36 bytes (we have 22 bytes of data, need 14 more)
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        
-        // Record 2: FACE_NAME
-        0x13, 0x00, 0x38, 0x00, // header: tag=0x0013, level=0, size=14
+    ]);
+    
+    // Record 2: FACE_NAME  
+    data.extend_from_slice(&face_name_header); // header: tag=0x0013, level=0, size=13
+    data.extend_from_slice(&[
         0x00, // properties: 0
         0x05, 0x00, // string length: 5
         0x41, 0x00, // 'A'
@@ -58,8 +70,7 @@ fn test_record_parsing() {
         0x69, 0x00, // 'i'
         0x61, 0x00, // 'a'
         0x6C, 0x00, // 'l'
-        0x00,       // padding byte to reach 14
-    ];
+    ]);
     
     let mut parser = RecordParser::new(&data);
     let records = parser.parse_all_records().unwrap();
@@ -75,8 +86,8 @@ fn test_record_parsing() {
     // Check second record (FACE_NAME)
     assert_eq!(records[1].tag_id, doc_info::FACE_NAME);
     assert_eq!(records[1].level, 0);
-    assert_eq!(records[1].size, 14);
-    assert_eq!(records[1].data.len(), 14);
+    assert_eq!(records[1].size, 13);
+    assert_eq!(records[1].data.len(), 13);
 }
 
 #[test]

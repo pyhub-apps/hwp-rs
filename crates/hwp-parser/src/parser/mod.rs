@@ -69,17 +69,27 @@ fn parse_cfb_hwp(data: &[u8]) -> Result<HwpDocument> {
         document.doc_info = doc_info::parse_doc_info(&doc_info_data)?;
     }
     
-    // TODO: Parse BodyText sections
-    // let mut section_idx = 0;
-    // loop {
-    //     let section_name = format!("BodyText/Section{}", section_idx);
-    //     if !container.has_stream(&section_name) {
-    //         break;
-    //     }
-    //     let section_stream = container.read_stream(&mut cursor, &section_name)?;
-    //     // Parse section...
-    //     section_idx += 1;
-    // }
+    // Parse BodyText sections
+    let mut section_idx = 0;
+    loop {
+        let section_name = format!("BodyText/Section{}", section_idx);
+        if !container.has_stream(&section_name) {
+            break;
+        }
+        
+        let section_stream = container.read_stream(&mut cursor, &section_name)?;
+        let section_data = if section_stream.is_compressed() {
+            section_stream.decompress()?
+        } else {
+            section_stream.as_bytes().to_vec()
+        };
+        
+        // Parse section
+        let section = section::parse_section(&section_data, section_idx)?;
+        document.sections.push(section);
+        
+        section_idx += 1;
+    }
     
     Ok(document)
 }
