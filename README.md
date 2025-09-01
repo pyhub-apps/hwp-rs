@@ -110,3 +110,7 @@ wasm-pack build crates/hwp-wasm --target web
 ## 라이선스
 
 MIT OR Apache-2.0
+
+## 참고 자료
+
+본 제품은 한글과컴퓨터의 한/글 문서 파일(.hwp) [공개 문서](https://store.hancom.com/etc/hwpDownload.do?gnb0=269&gnb0=101&gnb1=271&gnb1=140)를 참고하여 개발하였습니다.
