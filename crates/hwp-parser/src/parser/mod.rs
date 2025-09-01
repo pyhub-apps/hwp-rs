@@ -1,6 +1,8 @@
 pub mod header;
 pub mod doc_info;
 pub mod section;
+pub mod record;
+pub mod doc_info_records;
 
 use hwp_core::{HwpDocument, Result, HwpError};
 use crate::reader::ByteReader;
@@ -53,13 +55,19 @@ fn parse_cfb_hwp(data: &[u8]) -> Result<HwpDocument> {
     }
     
     // Create document
-    let document = HwpDocument::new(header);
+    let mut document = HwpDocument::new(header);
     
-    // TODO: Parse DocInfo stream
-    // if container.has_stream("DocInfo") {
-    //     let doc_info_stream = container.read_stream(&mut cursor, "DocInfo")?;
-    //     // Parse DocInfo...
-    // }
+    if container.has_stream("DocInfo") {
+        let doc_info_stream = container.read_stream(&mut cursor, "DocInfo")?;
+        let doc_info_data = if doc_info_stream.is_compressed() {
+            doc_info_stream.decompress()?
+        } else {
+            doc_info_stream.as_bytes().to_vec()
+        };
+        
+        // Parse DocInfo records
+        document.doc_info = doc_info::parse_doc_info(&doc_info_data)?;
+    }
     
     // TODO: Parse BodyText sections
     // let mut section_idx = 0;

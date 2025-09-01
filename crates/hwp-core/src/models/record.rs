@@ -99,7 +99,7 @@ impl Record {
 /// Record header for parsing
 #[derive(Debug, Clone, Copy)]
 pub struct RecordHeader {
-    /// Tag ID (10 bits) + Level (2 bits) + Size indicator (12 bits)
+    /// Tag ID (10 bits) + Level (2 bits) + Size (20 bits) packed in 32 bits
     pub value: u32,
 }
 
@@ -110,23 +110,23 @@ impl RecordHeader {
         Self { value }
     }
     
-    /// Get the tag ID (bits 0-9)
+    /// Get the tag ID (bits 0-9, 10 bits)
     pub fn tag_id(&self) -> u16 {
         (self.value & 0x3FF) as u16
     }
     
-    /// Get the level (bits 10-11)
+    /// Get the level (bits 10-11, 2 bits)
     pub fn level(&self) -> u8 {
         ((self.value >> 10) & 0x3) as u8
     }
     
-    /// Get the size (bits 12-31)
+    /// Get the size (bits 12-31, 20 bits)
     pub fn size(&self) -> u32 {
         self.value >> 12
     }
     
     /// Check if this record has extended size
     pub fn has_extended_size(&self) -> bool {
-        self.size() == 0xFFF
+        self.size() == 0xFFFFF  // 20 bits all set to 1
     }
 }
