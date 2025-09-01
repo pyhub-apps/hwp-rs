@@ -1,12 +1,18 @@
 use hwp_parser::parser::doc_info::parse_doc_info;
 use hwp_core::constants::tag_id::doc_info;
 
+fn header(tag_id: u16, level: u8, size: usize) -> [u8; 4] {
+    // HWP record header: tag_id(10) | level(2) | size(20)
+    let value = (tag_id as u32) | ((level as u32) << 10) | ((size as u32) << 12);
+    value.to_le_bytes()
+}
+
 /// Create a sample DocInfo data stream for demonstration
 fn create_sample_docinfo() -> Vec<u8> {
     let mut data = Vec::new();
     
-    // Document Properties Record (0x0010)
-    data.extend_from_slice(&[0x10, 0x00, 0x24, 0x00]); // header: tag=0x0010, size=36
+    // Document Properties Record (0x0010) size = 36
+    data.extend_from_slice(&header(doc_info::DOCUMENT_PROPERTIES, 0, 36));
     data.extend_from_slice(&[0x05, 0x00]); // section_count: 5
     data.extend_from_slice(&[0x01, 0x00]); // page_start_number: 1
     data.extend_from_slice(&[0x01, 0x00]); // footnote_start_number: 1
@@ -20,8 +26,8 @@ fn create_sample_docinfo() -> Vec<u8> {
     
     // Face Name Record (0x0013) - Arial
     let arial_utf16: Vec<u8> = "Arial".encode_utf16().flat_map(|c| c.to_le_bytes()).collect();
-    data.extend_from_slice(&[0x13, 0x00]); // tag
-    data.extend_from_slice(&((1 + 2 + arial_utf16.len()) as u16).to_le_bytes()); // size
+    let face_name_size = 1 + 2 + arial_utf16.len();
+    data.extend_from_slice(&header(doc_info::FACE_NAME, 0, face_name_size));
     data.push(0x01); // properties: has type info
     data.extend_from_slice(&(5u16).to_le_bytes()); // string length
     data.extend_from_slice(&arial_utf16);
@@ -30,18 +36,47 @@ fn create_sample_docinfo() -> Vec<u8> {
     
     // Face Name Record (0x0013) - 맑은 고딕 (Malgun Gothic)
     let malgun_utf16: Vec<u8> = "맑은 고딕".encode_utf16().flat_map(|c| c.to_le_bytes()).collect();
-    data.extend_from_slice(&[0x13, 0x00]); // tag
-    data.extend_from_slice(&((1 + 2 + malgun_utf16.len()) as u16).to_le_bytes()); // size
+    let face_name2_size = 1 + 2 + malgun_utf16.len();
+    data.extend_from_slice(&header(doc_info::FACE_NAME, 0, face_name2_size));
     data.push(0x00); // properties: no optional data
     data.extend_from_slice(&(5u16).to_le_bytes()); // string length (5 characters)
     data.extend_from_slice(&malgun_utf16);
-    
+
+    // Border Fill Record (0x0014) - minimal
+    let mut border_fill = Vec::new();
+    border_fill.extend_from_slice(&0u16.to_le_bytes()); // properties
+    for _ in 0..5 { // borders (left,right,top,bottom,diagonal)
+        border_fill.push(0); // line_type
+        border_fill.push(0); // thickness
+        border_fill.extend_from_slice(&0u32.to_le_bytes()); // color
+    }
+    border_fill.push(0); // fill_type
+    data.extend_from_slice(&header(doc_info::BORDER_FILL, 0, border_fill.len()));
+    data.extend_from_slice(&border_fill);
+
+    // Char Shape Record (0x0015) - minimal
+    let mut char_shape = Vec::new();
+    for i in 0..7 { char_shape.extend_from_slice(&(i as u16).to_le_bytes()); } // face_name_ids
+    for _ in 0..7 { char_shape.push(100); } // ratios
+    for _ in 0..7 { char_shape.push(0); } // char_spaces
+    for _ in 0..7 { char_shape.push(100); } // rel_sizes
+    for _ in 0..7 { char_shape.push(0); } // char_offsets
+    char_shape.extend_from_slice(&1200u32.to_le_bytes()); // base_size
+    char_shape.extend_from_slice(&0u32.to_le_bytes()); // properties
+    char_shape.push(0); // shadow_gap_x
+    char_shape.push(0); // shadow_gap_y
+    char_shape.extend_from_slice(&0x000000u32.to_le_bytes()); // text_color
+    char_shape.extend_from_slice(&0x000000u32.to_le_bytes()); // underline_color
+    char_shape.extend_from_slice(&0xFFFFFFu32.to_le_bytes()); // shade_color
+    char_shape.extend_from_slice(&0x808080u32.to_le_bytes()); // shadow_color
+    data.extend_from_slice(&header(doc_info::CHAR_SHAPE, 0, char_shape.len()));
+    data.extend_from_slice(&char_shape);
+
     // Style Record (0x001A) - Normal style
     let style_name_utf16: Vec<u8> = "본문".encode_utf16().flat_map(|c| c.to_le_bytes()).collect();
     let style_eng_utf16: Vec<u8> = "Normal".encode_utf16().flat_map(|c| c.to_le_bytes()).collect();
-    data.extend_from_slice(&[0x1A, 0x00]); // tag
     let style_size = 2 + style_name_utf16.len() + 2 + style_eng_utf16.len() + 1 + 1 + 2 + 2 + 2;
-    data.extend_from_slice(&(style_size as u16).to_le_bytes()); // size
+    data.extend_from_slice(&header(doc_info::STYLE, 0, style_size));
     data.extend_from_slice(&(2u16).to_le_bytes()); // name length
     data.extend_from_slice(&style_name_utf16);
     data.extend_from_slice(&(6u16).to_le_bytes()); // english name length

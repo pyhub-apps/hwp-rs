@@ -212,6 +212,12 @@ impl CfbStream {
             return Ok(self.data.clone());
         }
         
+        // Try HWP format first (4-byte size + raw deflate)
+        if crate::compression::is_hwp_compressed(&self.data) {
+            return crate::compression::decompress_hwp(&self.data);
+        }
+        
+        // Fallback to zlib decompression for legacy compatibility
         use flate2::read::ZlibDecoder;
         let mut decoder = ZlibDecoder::new(&self.data[..]);
         let mut decompressed = Vec::new();

@@ -42,16 +42,29 @@ impl<'a> RecordParser<'a> {
         
         let header = RecordHeader::from_bytes(header_bytes);
         
+        eprintln!("[DEBUG] Raw header bytes: {:02X?}", header_bytes);
+        eprintln!("[DEBUG] Parsed header: tag_id=0x{:04X}, level={}, raw_size={}", 
+                 header.tag_id(), header.level(), header.size());
+        
         // Determine the actual size
         let size = if header.has_extended_size() {
             // Extended size: next 4 bytes contain the actual size
-            self.reader.read_u32()?
+            let extended_size = self.reader.read_u32()?;
+            eprintln!("[DEBUG] Record with extended size: tag_id={:04X}, size={}", header.tag_id(), extended_size);
+            extended_size
         } else {
-            header.size()
+            let normal_size = header.size();
+            eprintln!("[DEBUG] Record: tag_id={:04X}, size={}", header.tag_id(), normal_size);
+            normal_size
         };
+        
+        eprintln!("[DEBUG] Available bytes: {}, Requested bytes: {}", self.reader.remaining(), size);
         
         // Read the record data
         let data = if size > 0 {
+            if size as usize > self.reader.remaining() {
+                eprintln!("[ERROR] Buffer underflow will occur: size={}, remaining={}", size, self.reader.remaining());
+            }
             self.reader.read_bytes(size as usize)?
         } else {
             Vec::new()
