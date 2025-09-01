@@ -455,6 +455,8 @@ dependencies = [
  "hwp-core",
  "log",
  "pretty_assertions",
+ "serde",
+ "serde_json",
  "tempfile",
  "thiserror",
  "zip",

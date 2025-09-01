@@ -18,6 +18,8 @@ encoding_rs = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 log = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 
 [dev-dependencies]
 pretty_assertions = { workspace = true }
